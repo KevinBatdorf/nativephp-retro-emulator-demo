@@ -47,7 +47,7 @@ class SystemsScreen extends NativeComponent
             return;
         }
 
-        $emu = Emulator::boot('showcase');
+        $emu = Emulator::surface('showcase');
 
         if ($this->current !== '') {
             $emu->stop();

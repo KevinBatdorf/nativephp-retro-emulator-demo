@@ -3,6 +3,7 @@
 namespace App\Conformance;
 
 use Closure;
+use KevinBatdorf\RetroEmulator\Buttons\SfcButton;
 use KevinBatdorf\RetroEmulator\Events\EmulatorPaused;
 use KevinBatdorf\RetroEmulator\Events\EmulatorResumed;
 use KevinBatdorf\RetroEmulator\Events\EmulatorStarted;
@@ -184,12 +185,15 @@ class ConformanceRunner
             $this->okStep('LoadSystem initialises sfc', 'Emulator.LoadSystem', [
                 ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false],
             ]),
-            $this->callStep('GetPorts reports SNES pads', 'Emulator.GetPorts', $surface, function (?array $r) {
+            $this->callStep('GetPorts matches the SfcButton enum', 'Emulator.GetPorts', $surface, function (?array $r) {
                 $buttons = $r['ports'][0]['buttons'] ?? [];
+                $enum = array_map(fn ($case) => $case->value, SfcButton::cases());
+                sort($buttons);
+                sort($enum);
 
-                return in_array('B', $buttons, true) && in_array('Start', $buttons, true)
+                return $buttons === $enum
                     ? null
-                    : 'port 1 buttons missing B/Start: '.json_encode($r['ports'] ?? null);
+                    : 'port 1 buttons drifted from SfcButton: '.json_encode($r['ports'] ?? null);
             }),
             $this->okStep('LoadRom accepts the ROM', 'Emulator.LoadRom', [...$surface, 'path' => $romPath]),
             $this->waitStep('EmulatorStarted fires on first frame', 'Emulator.LoadRom', EmulatorStarted::class, timeout: 15),
