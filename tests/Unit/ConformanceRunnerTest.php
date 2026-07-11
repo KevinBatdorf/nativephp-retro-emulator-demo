@@ -66,8 +66,11 @@ class FakeNative
             'Emulator.SetShader' => ($payload['path'] ?? null) !== null
                 ? $this->notImplemented()
                 : '{}',
-            'Emulator.SetInputMapping',
-            'Emulator.SetRumble' => $this->notImplemented(),
+            'Emulator.SetInputMapping' => $this->notImplemented(),
+            'Emulator.SetRumble' => json_encode([
+                'status' => ($payload['enabled'] ?? false) ? 'enabled' : 'disabled',
+                'hasVibrator' => true,
+            ]),
             'Emulator.AddCheat' => $this->addCheat($payload),
             'Emulator.RemoveCheat' => $this->removeCheat($payload),
             'Emulator.ClearCheats' => $this->clearCheats(),
@@ -266,14 +269,14 @@ it('fails a step when the bridge returns no response', function () {
 
 it('fails a de-scoped step when the function unexpectedly succeeds', function () {
     $native = new FakeNative;
-    $native->overrides['Emulator.SetRumble'] = fn () => '{}';
+    $native->overrides['Emulator.SetInputMapping'] = fn () => '{}';
     $time = 0.0;
     $runner = makeRunner($native, $time);
 
     $state = drive($runner, ConformanceRunner::initialState('/roms/test.sfc'));
 
     $failed = failures($state);
-    expect(array_column($failed, 'function'))->toContain('Emulator.SetRumble')
+    expect(array_column($failed, 'function'))->toContain('Emulator.SetInputMapping')
         ->and($failed[0]['detail'])->toContain('expected NOT_IMPLEMENTED');
 });
 

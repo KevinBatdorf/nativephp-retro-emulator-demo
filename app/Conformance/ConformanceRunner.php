@@ -289,7 +289,12 @@ class ConformanceRunner
             $this->errorStep('SetInputMapping is NOT_IMPLEMENTED', 'Emulator.SetInputMapping', [
                 ...$surface, 'port' => 1, 'mappings' => ['a' => 'button_a'],
             ]),
-            $this->errorStep('SetRumble is NOT_IMPLEMENTED', 'Emulator.SetRumble', [...$surface, 'enabled' => true]),
+            $this->okStep('SetRumble enables forwarding', 'Emulator.SetRumble', [...$surface, 'enabled' => true]),
+            $this->callStep('SetRumble disables and reports vibrator', 'Emulator.SetRumble', [
+                ...$surface, 'enabled' => false,
+            ], fn (?array $r) => ($r['status'] ?? null) === 'disabled' && array_key_exists('hasVibrator', $r ?? [])
+                ? null
+                : 'expected status=disabled with hasVibrator, got '.json_encode($r)),
             $this->errorStep('SetShader with path is NOT_IMPLEMENTED', 'Emulator.SetShader', [
                 ...$surface, 'path' => 'crt-royale.slangp',
             ]),
