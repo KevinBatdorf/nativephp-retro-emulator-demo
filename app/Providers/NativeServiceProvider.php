@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use KevinBatdorf\RetroEmulator\RetroEmulatorServiceProvider;
+use Nativephp\NativeUi\NativeUIServiceProvider;
 
 class NativeServiceProvider extends ServiceProvider
 {
@@ -35,6 +36,7 @@ class NativeServiceProvider extends ServiceProvider
     public function plugins(): array
     {
         return [
+            NativeUIServiceProvider::class,
             RetroEmulatorServiceProvider::class,
         ];
     }
