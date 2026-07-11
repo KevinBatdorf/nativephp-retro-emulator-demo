@@ -27,6 +27,10 @@ class FakeNative
     /** @var array<string, true> */
     private array $cheats = [];
 
+    private bool $rewindEnabled = false;
+
+    private bool $rewinding = false;
+
     public function __invoke(string $function, string $json): ?string
     {
         $payload = json_decode($json, true) ?? [];
@@ -58,6 +62,7 @@ class FakeNative
             ]),
             'Emulator.WriteMemory' => $this->write($payload),
             'Emulator.Configure' => $this->configure($payload),
+            'Emulator.ToggleRewind' => $this->toggleRewind(),
             'Emulator.SetShader' => ($payload['path'] ?? null) !== null
                 ? $this->notImplemented()
                 : '{}',
@@ -119,11 +124,27 @@ class FakeNative
     {
         $options = $payload['options'] ?? [];
 
-        if (($options['runAhead'] ?? 0) !== 0 || ($options['rewind'] ?? false) !== false) {
-            return $this->notImplemented();
+        if (! in_array($options['runAhead'] ?? 0, [0, 1], true)) {
+            return json_encode(['status' => 'error', 'code' => 'INVALID_PARAMETERS', 'message' => 'runAhead must be 0 or 1', 'data' => []]);
+        }
+
+        if (array_key_exists('rewind', $options)) {
+            $this->rewindEnabled = (bool) $options['rewind'];
+            $this->rewinding = $this->rewindEnabled && $this->rewinding;
         }
 
         return '{}';
+    }
+
+    private function toggleRewind(): string
+    {
+        if (! $this->rewindEnabled) {
+            return json_encode(['status' => 'error', 'code' => 'REWIND_DISABLED', 'message' => 'rewind capture is off', 'data' => []]);
+        }
+
+        $this->rewinding = ! $this->rewinding;
+
+        return json_encode(['status' => $this->rewinding ? 'rewinding' : 'playing']);
     }
 
     private function notImplemented(): string
@@ -210,7 +231,7 @@ it('exercises every bridge function declared in the plugin manifest', function (
     $declared = array_column($manifest['bridge_functions'], 'name');
     $called = array_unique(array_column($native->calls, 'function'));
 
-    expect($declared)->toHaveCount(35)
+    expect($declared)->toHaveCount(36)
         ->and(array_values(array_diff($declared, $called)))->toBe([]);
 });
 

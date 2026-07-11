@@ -258,11 +258,30 @@ class ConformanceRunner
             ]),
             $this->okStep('Configure speed 2.0', 'Emulator.Configure', [...$surface, 'options' => ['speed' => 2.0]]),
             $this->okStep('Configure speed back to 1.0', 'Emulator.Configure', [...$surface, 'options' => ['speed' => 1.0]]),
-            $this->errorStep('Configure runAhead is NOT_IMPLEMENTED', 'Emulator.Configure', [
-                ...$surface, 'options' => ['runAhead' => 2],
+            $this->okStep('Configure runAhead 1 enables', 'Emulator.Configure', [
+                ...$surface, 'options' => ['runAhead' => 1],
             ]),
-            $this->errorStep('Configure rewind is NOT_IMPLEMENTED', 'Emulator.Configure', [
-                ...$surface, 'options' => ['rewind' => true],
+            $this->errorStep('Configure runAhead 2 rejected', 'Emulator.Configure', [
+                ...$surface, 'options' => ['runAhead' => 2],
+            ], code: 'INVALID_PARAMETERS'),
+            $this->okStep('Configure runAhead 0 disables', 'Emulator.Configure', [
+                ...$surface, 'options' => ['runAhead' => 0],
+            ]),
+            $this->errorStep('ToggleRewind requires capture enabled', 'Emulator.ToggleRewind', $surface,
+                code: 'REWIND_DISABLED'),
+            $this->okStep('Configure rewind enables capture', 'Emulator.Configure', [
+                ...$surface, 'options' => ['rewind' => true, 'rewindBufferSeconds' => 10],
+            ]),
+            $this->callStep('ToggleRewind enters rewind playback', 'Emulator.ToggleRewind', $surface,
+                fn (?array $r) => ($r['status'] ?? null) === 'rewinding'
+                    ? null
+                    : 'status is '.json_encode($r['status'] ?? null).', expected rewinding'),
+            $this->callStep('ToggleRewind returns to play', 'Emulator.ToggleRewind', $surface,
+                fn (?array $r) => ($r['status'] ?? null) === 'playing'
+                    ? null
+                    : 'status is '.json_encode($r['status'] ?? null).', expected playing'),
+            $this->okStep('Configure rewind disables capture', 'Emulator.Configure', [
+                ...$surface, 'options' => ['rewind' => false],
             ]),
             $this->okStep('SetSystemOptions merges', 'Emulator.SetSystemOptions', [...$surface, 'options' => []]),
             $this->okStep('FastForward on', 'Emulator.FastForward', [...$surface, 'enabled' => true]),
