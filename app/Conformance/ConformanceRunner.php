@@ -275,10 +275,22 @@ class ConformanceRunner
                 ...$surface, 'path' => 'crt-royale.slangp',
             ]),
             $this->okStep('SetShader null clears', 'Emulator.SetShader', [...$surface, 'path' => null]),
-            $this->errorStep('AddCheat is NOT_IMPLEMENTED', 'Emulator.AddCheat', [
-                ...$surface, 'code' => '7E1F0001', 'description' => 'conformance',
+            $this->okStep('AddCheat registers a valid code', 'Emulator.AddCheat', [
+                ...$surface, 'code' => '7E1F00:01+7E1F01:FF', 'description' => 'conformance',
             ]),
-            $this->errorStep('RemoveCheat is NOT_IMPLEMENTED', 'Emulator.RemoveCheat', [...$surface, 'code' => '7E1F0001']),
+            $this->errorStep('AddCheat rejects a malformed code', 'Emulator.AddCheat', [
+                ...$surface, 'code' => 'not-a-cheat', 'description' => 'conformance',
+            ], code: 'INVALID_CHEAT'),
+            $this->callStep('RemoveCheat removes the active code', 'Emulator.RemoveCheat', [
+                ...$surface, 'code' => '7E1F00:01+7E1F01:FF',
+            ], fn (?array $r) => ($r['status'] ?? null) === 'removed'
+                ? null
+                : 'status is '.json_encode($r['status'] ?? null).', expected removed'),
+            $this->callStep('RemoveCheat reports unknown codes', 'Emulator.RemoveCheat', [
+                ...$surface, 'code' => '7E1F02:00',
+            ], fn (?array $r) => ($r['status'] ?? null) === 'not_found'
+                ? null
+                : 'status is '.json_encode($r['status'] ?? null).', expected not_found'),
             $this->okStep('ClearCheats succeeds', 'Emulator.ClearCheats', $surface),
             $this->okStep('PressButton Start', 'Emulator.PressButton', [...$surface, 'port' => 1, 'button' => 'Start']),
             $this->okStep('ReleaseButton Start', 'Emulator.ReleaseButton', [...$surface, 'port' => 1, 'button' => 'Start']),

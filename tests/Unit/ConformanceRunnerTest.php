@@ -24,6 +24,9 @@ class FakeNative
     /** @var array<int, int> */
     private array $memory = [];
 
+    /** @var array<string, true> */
+    private array $cheats = [];
+
     public function __invoke(string $function, string $json): ?string
     {
         $payload = json_decode($json, true) ?? [];
@@ -59,11 +62,41 @@ class FakeNative
                 ? $this->notImplemented()
                 : '{}',
             'Emulator.SetInputMapping',
-            'Emulator.SetRumble',
-            'Emulator.AddCheat',
-            'Emulator.RemoveCheat' => $this->notImplemented(),
+            'Emulator.SetRumble' => $this->notImplemented(),
+            'Emulator.AddCheat' => $this->addCheat($payload),
+            'Emulator.RemoveCheat' => $this->removeCheat($payload),
+            'Emulator.ClearCheats' => $this->clearCheats(),
             default => '{}',
         };
+    }
+
+    private function addCheat(array $payload): string
+    {
+        $code = $payload['code'] ?? '';
+
+        if (! preg_match('/^[0-9A-Fa-f]+:[0-9A-Fa-f]+(\+[0-9A-Fa-f]+:[0-9A-Fa-f]+)*$/', $code)) {
+            return json_encode(['status' => 'error', 'code' => 'INVALID_CHEAT', 'message' => 'no valid pairs', 'data' => []]);
+        }
+
+        $this->cheats[$code] = true;
+
+        return json_encode(['status' => 'added', 'code' => $code]);
+    }
+
+    private function removeCheat(array $payload): string
+    {
+        $code = $payload['code'] ?? '';
+        $found = isset($this->cheats[$code]);
+        unset($this->cheats[$code]);
+
+        return json_encode(['status' => $found ? 'removed' : 'not_found', 'code' => $code]);
+    }
+
+    private function clearCheats(): string
+    {
+        $this->cheats = [];
+
+        return json_encode(['status' => 'cleared']);
     }
 
     private function transition(string $status): string
@@ -212,14 +245,14 @@ it('fails a step when the bridge returns no response', function () {
 
 it('fails a de-scoped step when the function unexpectedly succeeds', function () {
     $native = new FakeNative;
-    $native->overrides['Emulator.AddCheat'] = fn () => '{}';
+    $native->overrides['Emulator.SetRumble'] = fn () => '{}';
     $time = 0.0;
     $runner = makeRunner($native, $time);
 
     $state = drive($runner, ConformanceRunner::initialState('/roms/test.sfc'));
 
     $failed = failures($state);
-    expect(array_column($failed, 'function'))->toContain('Emulator.AddCheat')
+    expect(array_column($failed, 'function'))->toContain('Emulator.SetRumble')
         ->and($failed[0]['detail'])->toContain('expected NOT_IMPLEMENTED');
 });
 
