@@ -30,3 +30,4 @@ Thumbs.db
 /nativephp/binaries
 /storage/logs/native-run*.log
 /.shim
+/release-staging
