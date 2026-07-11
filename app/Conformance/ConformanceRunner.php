@@ -1,0 +1,414 @@
+<?php
+
+namespace App\Conformance;
+
+use Closure;
+use KevinBatdorf\RetroEmulator\Events\EmulatorPaused;
+use KevinBatdorf\RetroEmulator\Events\EmulatorResumed;
+use KevinBatdorf\RetroEmulator\Events\EmulatorStarted;
+use KevinBatdorf\RetroEmulator\Events\EmulatorStopped;
+use KevinBatdorf\RetroEmulator\Events\MemoryChanged;
+use KevinBatdorf\RetroEmulator\Events\MemoryRead;
+
+/**
+ * Device-side conformance suite for the retro-emulator plugin: drives every
+ * bridge function against the live native layer and records pass/fail.
+ *
+ * All state lives in a plain array (component props serialize between poll
+ * ticks), so this class holds no run state — tick() and recordEvent() take
+ * the state and return the next one.
+ */
+class ConformanceRunner
+{
+    private const SURFACE = 'main';
+
+    /** WRAM the hello-world test ROM leaves untouched. */
+    private const SCRATCH_ADDRESS = 0x7E1F00;
+
+    private const WATCHED_ADDRESS = 0x7E1F10;
+
+    private Closure $bridge;
+
+    private Closure $now;
+
+    public function __construct(?Closure $bridge = null, ?Closure $now = null)
+    {
+        $this->bridge = $bridge ?? static fn (string $function, string $payload): ?string => function_exists('nativephp_call')
+            ? nativephp_call($function, $payload)
+            : null;
+        $this->now = $now ?? static fn (): float => microtime(true);
+    }
+
+    /**
+     * @return array{romPath: string, stepIndex: int, results: array, waiting: ?array, events: array, finished: bool}
+     */
+    public static function initialState(string $romPath): array
+    {
+        return [
+            'romPath' => $romPath,
+            'stepIndex' => 0,
+            'results' => [],
+            'waiting' => null,
+            'events' => [],
+            'finished' => false,
+        ];
+    }
+
+    public function recordEvent(array $state, string $class, array $payload): array
+    {
+        $state['events'][] = ['class' => $class, 'payload' => $payload];
+
+        return $state;
+    }
+
+    public function tick(array $state): array
+    {
+        if ($state['finished']) {
+            return $state;
+        }
+
+        if ($state['waiting'] !== null) {
+            $state = $this->settleWait($state);
+
+            if ($state['waiting'] !== null) {
+                return $state;
+            }
+        }
+
+        $steps = $this->steps($state['romPath']);
+
+        while (! $state['finished'] && $state['waiting'] === null) {
+            if ($state['stepIndex'] >= count($steps)) {
+                $state['finished'] = true;
+
+                break;
+            }
+
+            $step = $steps[$state['stepIndex']];
+            $state['stepIndex']++;
+
+            $outcome = ($step['run'])();
+
+            if (isset($outcome['wait'])) {
+                $state['waiting'] = [
+                    ...$outcome['wait'],
+                    'label' => $step['label'],
+                    'function' => $step['function'],
+                    'deadline' => ($this->now)() + $outcome['wait']['timeout'],
+                    'since' => count($state['events']),
+                ];
+            } else {
+                $state['results'][] = $outcome;
+            }
+        }
+
+        return $state;
+    }
+
+    private function settleWait(array $state): array
+    {
+        $waiting = $state['waiting'];
+
+        foreach (array_slice($state['events'], $waiting['since']) as $event) {
+            if ($event['class'] !== $waiting['event']) {
+                continue;
+            }
+
+            $expects = $waiting['expects'] ?? [];
+
+            // Loose compare: JSON payloads may deliver ints as strings.
+            if ($expects !== [] && array_intersect_key($event['payload'], $expects) != $expects) {
+                continue;
+            }
+
+            $state['results'][] = $this->pass($waiting['label'], $waiting['function'], 'event received');
+            $state['waiting'] = null;
+
+            return $state;
+        }
+
+        if (($this->now)() > $waiting['deadline']) {
+            $state['results'][] = $this->fail(
+                $waiting['label'],
+                $waiting['function'],
+                'timed out waiting for '.class_basename($waiting['event']),
+            );
+            $state['waiting'] = null;
+
+            return $state;
+        }
+
+        if (($waiting['poke'] ?? null) !== null) {
+            $this->{$waiting['poke']}();
+        }
+
+        return $state;
+    }
+
+    /**
+     * Re-write the watched byte while waiting for MemoryChanged: the native
+     * watch takes a silent baseline on its first frame, so a single write can
+     * land before the baseline and never register as a change.
+     */
+    private function toggleWatchedByte(): void
+    {
+        $value = ((int) (($this->now)() * 10)) % 2 === 0 ? 0x55 : 0xAA;
+
+        $this->call('Emulator.WriteMemory', [
+            'surface' => self::SURFACE,
+            'address' => self::WATCHED_ADDRESS,
+            'bytes' => [$value],
+        ]);
+    }
+
+    /**
+     * @return list<array{label: string, function: string, run: Closure}>
+     */
+    private function steps(string $romPath): array
+    {
+        $surface = ['surface' => self::SURFACE];
+
+        return [
+            $this->callStep('GetSystems lists sfc as supported', 'Emulator.GetSystems', [], function (?array $r) {
+                $systems = $r['systems'] ?? [];
+                $sfc = array_values(array_filter($systems, fn ($s) => ($s['id'] ?? null) === 'sfc'));
+
+                if ($sfc === [] || ! ($sfc[0]['supported'] ?? false)) {
+                    return 'sfc missing or unsupported: '.json_encode($systems);
+                }
+
+                return null;
+            }),
+            $this->okStep('Boot binds the surface', 'Emulator.Boot', $surface),
+            $this->statusStep('Status is stopped before load', 'stopped'),
+            $this->okStep('LoadSystem initialises sfc', 'Emulator.LoadSystem', [
+                ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false],
+            ]),
+            $this->callStep('GetPorts reports SNES pads', 'Emulator.GetPorts', $surface, function (?array $r) {
+                $buttons = $r['ports'][0]['buttons'] ?? [];
+
+                return in_array('B', $buttons, true) && in_array('Start', $buttons, true)
+                    ? null
+                    : 'port 1 buttons missing B/Start: '.json_encode($r['ports'] ?? null);
+            }),
+            $this->okStep('LoadRom accepts the ROM', 'Emulator.LoadRom', [...$surface, 'path' => $romPath]),
+            $this->waitStep('EmulatorStarted fires on first frame', 'Emulator.LoadRom', EmulatorStarted::class, timeout: 15),
+            $this->statusStep('Status is running after start', 'running'),
+            $this->callStep('GetRegion returns a region', 'Emulator.GetRegion', $surface, function (?array $r) {
+                return ($r['region'] ?? '') !== '' ? null : 'empty region: '.json_encode($r);
+            }),
+            $this->callStep('ReadMemory returns bytes', 'Emulator.ReadMemory', [
+                ...$surface, 'address' => self::SCRATCH_ADDRESS, 'length' => 2,
+            ], function (?array $r) {
+                return count($r['bytes'] ?? []) === 2 ? null : 'expected 2 bytes: '.json_encode($r);
+            }),
+            [
+                'label' => 'WriteMemory round-trips',
+                'function' => 'Emulator.WriteMemory',
+                'run' => function () use ($surface) {
+                    $write = $this->call('Emulator.WriteMemory', [
+                        ...$surface, 'address' => self::SCRATCH_ADDRESS, 'bytes' => [0xAB],
+                    ]);
+
+                    if ($this->isError($write) || $write === null) {
+                        return $this->fail('WriteMemory round-trips', 'Emulator.WriteMemory', $this->describe($write));
+                    }
+
+                    $read = $this->call('Emulator.ReadMemory', [
+                        ...$surface, 'address' => self::SCRATCH_ADDRESS, 'length' => 1,
+                    ]);
+
+                    return ($read['bytes'][0] ?? null) == 0xAB
+                        ? $this->pass('WriteMemory round-trips', 'Emulator.WriteMemory', 'wrote 0xAB, read it back')
+                        : $this->fail('WriteMemory round-trips', 'Emulator.WriteMemory', 'read back '.json_encode($read));
+                },
+            ],
+            $this->okStep('ReadMemoryAsync dispatches', 'Emulator.ReadMemoryAsync', [
+                ...$surface, 'address' => self::SCRATCH_ADDRESS, 'length' => 1,
+            ]),
+            $this->waitStep('MemoryRead event arrives', 'Emulator.ReadMemoryAsync', MemoryRead::class, timeout: 5, expects: [
+                'address' => self::SCRATCH_ADDRESS,
+            ]),
+            $this->okStep('WatchMemory registers a watch', 'Emulator.WatchMemory', [
+                ...$surface, 'addresses' => [self::WATCHED_ADDRESS],
+            ]),
+            $this->waitStep('MemoryChanged fires on change', 'Emulator.WatchMemory', MemoryChanged::class, timeout: 10, expects: [
+                'address' => self::WATCHED_ADDRESS,
+            ], poke: 'toggleWatchedByte'),
+            $this->okStep('UnwatchMemory removes the watch', 'Emulator.UnwatchMemory', [
+                ...$surface, 'addresses' => [self::WATCHED_ADDRESS],
+            ]),
+            $this->okStep('ClearMemoryWatches succeeds', 'Emulator.ClearMemoryWatches', $surface),
+            $this->okStep('Pause succeeds', 'Emulator.Pause', $surface),
+            $this->waitStep('EmulatorPaused fires', 'Emulator.Pause', EmulatorPaused::class, timeout: 5),
+            $this->statusStep('Status is paused', 'paused'),
+            $this->okStep('Resume succeeds', 'Emulator.Resume', $surface),
+            $this->waitStep('EmulatorResumed fires', 'Emulator.Resume', EmulatorResumed::class, timeout: 5),
+            $this->statusStep('Status is running after resume', 'running'),
+            $this->okStep('StateSave to slot 1', 'Emulator.StateSave', [...$surface, 'slot' => 1]),
+            $this->okStep('StateLoad from slot 1', 'Emulator.StateLoad', [...$surface, 'slot' => 1]),
+            $this->okStep('UndoStateSave succeeds', 'Emulator.UndoStateSave', $surface),
+            $this->okStep('UndoStateLoad succeeds', 'Emulator.UndoStateLoad', $surface),
+            $this->okStep('Screenshot captures a frame', 'Emulator.Screenshot', $surface),
+            $this->okStep('SetAudio merges volume/balance', 'Emulator.SetAudio', [
+                ...$surface, 'options' => ['volume' => 80, 'balance' => 0],
+            ]),
+            $this->okStep('SetVideo merges options', 'Emulator.SetVideo', [
+                ...$surface, 'options' => ['luminance' => 90, 'saturation' => 100],
+            ]),
+            $this->okStep('Configure speed 2.0', 'Emulator.Configure', [...$surface, 'options' => ['speed' => 2.0]]),
+            $this->okStep('Configure speed back to 1.0', 'Emulator.Configure', [...$surface, 'options' => ['speed' => 1.0]]),
+            $this->errorStep('Configure runAhead is NOT_IMPLEMENTED', 'Emulator.Configure', [
+                ...$surface, 'options' => ['runAhead' => 2],
+            ]),
+            $this->errorStep('Configure rewind is NOT_IMPLEMENTED', 'Emulator.Configure', [
+                ...$surface, 'options' => ['rewind' => true],
+            ]),
+            $this->okStep('SetSystemOptions merges', 'Emulator.SetSystemOptions', [...$surface, 'options' => []]),
+            $this->okStep('FastForward on', 'Emulator.FastForward', [...$surface, 'enabled' => true]),
+            $this->okStep('FastForward off', 'Emulator.FastForward', [...$surface, 'enabled' => false]),
+            $this->errorStep('SetInputMapping is NOT_IMPLEMENTED', 'Emulator.SetInputMapping', [
+                ...$surface, 'port' => 1, 'mappings' => ['a' => 'button_a'],
+            ]),
+            $this->errorStep('SetRumble is NOT_IMPLEMENTED', 'Emulator.SetRumble', [...$surface, 'enabled' => true]),
+            $this->errorStep('SetShader with path is NOT_IMPLEMENTED', 'Emulator.SetShader', [
+                ...$surface, 'path' => 'crt-royale.slangp',
+            ]),
+            $this->okStep('SetShader null clears', 'Emulator.SetShader', [...$surface, 'path' => null]),
+            $this->errorStep('AddCheat is NOT_IMPLEMENTED', 'Emulator.AddCheat', [
+                ...$surface, 'code' => '7E1F0001', 'description' => 'conformance',
+            ]),
+            $this->errorStep('RemoveCheat is NOT_IMPLEMENTED', 'Emulator.RemoveCheat', [...$surface, 'code' => '7E1F0001']),
+            $this->okStep('ClearCheats succeeds', 'Emulator.ClearCheats', $surface),
+            $this->okStep('PressButton Start', 'Emulator.PressButton', [...$surface, 'port' => 1, 'button' => 'Start']),
+            $this->okStep('ReleaseButton Start', 'Emulator.ReleaseButton', [...$surface, 'port' => 1, 'button' => 'Start']),
+            $this->okStep('SetButtons merges state', 'Emulator.SetButtons', [
+                ...$surface, 'port' => 1, 'state' => ['Up' => true],
+            ]),
+            $this->okStep('SetButtons clears state', 'Emulator.SetButtons', [
+                ...$surface, 'port' => 1, 'state' => ['Up' => false],
+            ]),
+            $this->okStep('Stop tears down', 'Emulator.Stop', $surface),
+            $this->waitStep('EmulatorStopped fires', 'Emulator.Stop', EmulatorStopped::class, timeout: 5),
+            $this->statusStep('Status is stopped after stop', 'stopped'),
+            [
+                'label' => 'EmulatorError not exercised',
+                'function' => 'Emulator.*',
+                'run' => fn () => $this->skip(
+                    'EmulatorError not exercised',
+                    'Emulator.*',
+                    'runtime-failure event; cannot be triggered deliberately',
+                ),
+            ],
+        ];
+    }
+
+    private function okStep(string $label, string $function, array $payload): array
+    {
+        return $this->callStep($label, $function, $payload, fn () => null);
+    }
+
+    /**
+     * @param  Closure(?array): ?string  $check  returns a failure detail, or null to pass
+     */
+    private function callStep(string $label, string $function, array $payload, Closure $check): array
+    {
+        return [
+            'label' => $label,
+            'function' => $function,
+            'run' => function () use ($label, $function, $payload, $check) {
+                $response = $this->call($function, $payload);
+
+                if ($response === null || $this->isError($response)) {
+                    return $this->fail($label, $function, $this->describe($response));
+                }
+
+                $detail = $check($response);
+
+                return $detail === null
+                    ? $this->pass($label, $function)
+                    : $this->fail($label, $function, $detail);
+            },
+        ];
+    }
+
+    private function errorStep(string $label, string $function, array $payload, string $code = 'NOT_IMPLEMENTED'): array
+    {
+        return [
+            'label' => $label,
+            'function' => $function,
+            'run' => function () use ($label, $function, $payload, $code) {
+                $response = $this->call($function, $payload);
+
+                return ($response['status'] ?? null) === 'error' && ($response['code'] ?? null) === $code
+                    ? $this->pass($label, $function, "errors with {$code} as documented")
+                    : $this->fail($label, $function, "expected {$code} error, got ".json_encode($response));
+            },
+        ];
+    }
+
+    private function statusStep(string $label, string $expected): array
+    {
+        return $this->callStep($label, 'Emulator.GetStatus', ['surface' => self::SURFACE], function (?array $r) use ($expected) {
+            return ($r['status'] ?? null) === $expected
+                ? null
+                : 'status is '.json_encode($r['status'] ?? null).", expected {$expected}";
+        });
+    }
+
+    private function waitStep(string $label, string $function, string $event, int $timeout, array $expects = [], ?string $poke = null): array
+    {
+        return [
+            'label' => $label,
+            'function' => $function,
+            'run' => fn () => ['wait' => [
+                'event' => $event,
+                'timeout' => $timeout,
+                'expects' => $expects,
+                'poke' => $poke,
+            ]],
+        ];
+    }
+
+    private function call(string $function, array $payload): ?array
+    {
+        $raw = ($this->bridge)($function, json_encode($payload === [] ? new \stdClass : $payload));
+
+        if ($raw === null) {
+            return null;
+        }
+
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    private function isError(?array $response): bool
+    {
+        return ($response['status'] ?? null) === 'error' && isset($response['code']);
+    }
+
+    private function describe(?array $response): string
+    {
+        if ($response === null) {
+            return 'no response from bridge';
+        }
+
+        return ($response['code'] ?? 'error').': '.($response['message'] ?? json_encode($response));
+    }
+
+    private function pass(string $label, string $function, string $detail = ''): array
+    {
+        return ['label' => $label, 'function' => $function, 'status' => 'pass', 'detail' => $detail];
+    }
+
+    private function fail(string $label, string $function, string $detail): array
+    {
+        return ['label' => $label, 'function' => $function, 'status' => 'fail', 'detail' => $detail];
+    }
+
+    private function skip(string $label, string $function, string $detail): array
+    {
+        return ['label' => $label, 'function' => $function, 'status' => 'skipped', 'detail' => $detail];
+    }
+}
