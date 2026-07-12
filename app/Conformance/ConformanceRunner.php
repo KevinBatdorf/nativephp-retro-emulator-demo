@@ -280,7 +280,9 @@ class ConformanceRunner
             $this->okStep('Configure rewind disables capture', 'Emulator.Configure', [
                 ...$surface, 'options' => ['rewind' => false],
             ]),
-            $this->okStep('SetSystemOptions merges', 'Emulator.SetSystemOptions', [...$surface, 'options' => []]),
+            $this->okStep('SetSystemOptions merges a per-system toggle', 'Emulator.SetSystemOptions', [
+                ...$surface, 'options' => ['deepBlackBoost' => true],
+            ]),
             $this->okStep('FastForward on', 'Emulator.FastForward', [...$surface, 'enabled' => true]),
             $this->okStep('FastForward off', 'Emulator.FastForward', [...$surface, 'enabled' => false]),
             $this->errorStep('SetInputMapping is NOT_IMPLEMENTED', 'Emulator.SetInputMapping', [
