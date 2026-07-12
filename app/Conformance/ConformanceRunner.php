@@ -276,14 +276,7 @@ class ConformanceRunner
             $this->okStep('Configure rewind enables capture', 'Emulator.Configure', [
                 ...$surface, 'options' => ['rewind' => true, 'rewindBufferSeconds' => 10],
             ]),
-            $this->callStep('ToggleRewind enters rewind playback', 'Emulator.ToggleRewind', $surface,
-                fn (?array $r) => ($r['status'] ?? null) === 'rewinding'
-                    ? null
-                    : 'status is '.json_encode($r['status'] ?? null).', expected rewinding'),
-            $this->callStep('ToggleRewind returns to play', 'Emulator.ToggleRewind', $surface,
-                fn (?array $r) => ($r['status'] ?? null) === 'playing'
-                    ? null
-                    : 'status is '.json_encode($r['status'] ?? null).', expected playing'),
+            $this->rewindRoundTripStep($surface),
             $this->okStep('Configure rewind disables capture', 'Emulator.Configure', [
                 ...$surface, 'options' => ['rewind' => false],
             ]),
@@ -346,6 +339,46 @@ class ConformanceRunner
     private function okStep(string $label, string $function, array $payload): array
     {
         return $this->callStep($label, $function, $payload, fn () => null);
+    }
+
+    /**
+     * Enter and exit rewind playback in one step, back to back. Playback
+     * drains history at 5× the capture rate and auto-resumes play when it
+     * empties — after that, every toggle re-enters and reports "rewinding",
+     * so an exit toggle in a later step races the drain and can never be
+     * made deterministic. Within one step the gap is milliseconds; the
+     * sleep first banks ~1 s of history so it cannot drain inside that gap.
+     */
+    private function rewindRoundTripStep(array $surface): array
+    {
+        $label = 'ToggleRewind enters rewind then returns to play';
+
+        return [
+            'label' => $label,
+            'function' => 'Emulator.ToggleRewind',
+            'run' => function () use ($label, $surface) {
+                usleep(1_000_000);
+
+                $enter = $this->call('Emulator.ToggleRewind', $surface);
+                if ($enter === null || $this->isError($enter)) {
+                    return $this->fail($label, 'Emulator.ToggleRewind', $this->describe($enter));
+                }
+                if (($enter['status'] ?? null) !== 'rewinding') {
+                    return $this->fail($label, 'Emulator.ToggleRewind',
+                        'enter status is '.json_encode($enter['status'] ?? null).', expected rewinding');
+                }
+
+                $exit = $this->call('Emulator.ToggleRewind', $surface);
+                if ($exit === null || $this->isError($exit)) {
+                    return $this->fail($label, 'Emulator.ToggleRewind', $this->describe($exit));
+                }
+
+                return ($exit['status'] ?? null) === 'playing'
+                    ? $this->pass($label, 'Emulator.ToggleRewind')
+                    : $this->fail($label, 'Emulator.ToggleRewind',
+                        'exit status is '.json_encode($exit['status'] ?? null).', expected playing');
+            },
+        ];
     }
 
     /**
