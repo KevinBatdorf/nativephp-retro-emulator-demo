@@ -37,6 +37,20 @@ class SystemsScreen extends NativeComponent
         $this->play('md');
     }
 
+    public function playZelda(): void
+    {
+        $emu = Emulator::surface('showcase');
+
+        if ($this->current !== '') {
+            $emu->stop();
+        }
+
+        $emu->loadSystem('sfc')->loadRom('/data/local/tmp/alttp.sfc');
+
+        $this->current = 'sfc';
+        $this->status = 'sfc — alttp.sfc';
+    }
+
     private function play(string $system): void
     {
         $rom = BundledRoms::forSystem($system);
