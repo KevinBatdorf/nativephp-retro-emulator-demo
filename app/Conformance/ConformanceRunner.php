@@ -307,7 +307,7 @@ class ConformanceRunner
             ]),
             // Device selection + the axis input channel (mouse).
             $this->errorStep('ConnectDevice rejects an unsupported device', 'Emulator.ConnectDevice', [
-                ...$surface, 'port' => 1, 'device' => 'Super Scope',
+                ...$surface, 'port' => 1, 'device' => 'Twin Tap',
             ], code: 'UNSUPPORTED_DEVICE'),
             $this->okStep('ConnectDevice a Mouse on port 2', 'Emulator.ConnectDevice', [
                 ...$surface, 'port' => 2, 'device' => 'Mouse',
@@ -323,6 +323,19 @@ class ConformanceRunner
             ]),
             $this->okStep('ReleaseButton the mouse Left button', 'Emulator.ReleaseButton', [
                 ...$surface, 'port' => 2, 'button' => 'Left',
+            ]),
+            // Light-gun: swap the mouse for a Super Scope, aim it, pull trigger.
+            $this->okStep('ConnectDevice a Super Scope on port 2', 'Emulator.ConnectDevice', [
+                ...$surface, 'port' => 2, 'device' => 'Super Scope',
+            ]),
+            $this->okStep('AimAt centres the light-gun', 'Emulator.AimAt', [
+                ...$surface, 'port' => 2, 'x' => 0.5, 'y' => 0.5,
+            ]),
+            $this->errorStep('AimAt rejects a device without axes', 'Emulator.AimAt', [
+                ...$surface, 'port' => 1, 'x' => 0.5, 'y' => 0.5,
+            ], code: 'INVALID_PARAMETERS'),
+            $this->okStep('PressButton the Super Scope trigger', 'Emulator.PressButton', [
+                ...$surface, 'port' => 2, 'button' => 'Trigger',
             ]),
             $this->okStep('SetRumble enables forwarding', 'Emulator.SetRumble', [...$surface, 'enabled' => true]),
             $this->callStep('SetRumble disables and reports vibrator', 'Emulator.SetRumble', [
