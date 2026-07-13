@@ -4,6 +4,7 @@ namespace App\Conformance;
 
 use Closure;
 use KevinBatdorf\RetroEmulator\Buttons\SfcButton;
+use KevinBatdorf\RetroEmulator\Events\EmulatorError;
 use KevinBatdorf\RetroEmulator\Events\EmulatorPaused;
 use KevinBatdorf\RetroEmulator\Events\EmulatorResumed;
 use KevinBatdorf\RetroEmulator\Events\EmulatorStarted;
@@ -301,9 +302,17 @@ class ConformanceRunner
             $this->okStep('AddCheat registers a valid code', 'Emulator.AddCheat', [
                 ...$surface, 'code' => '7E1F00:01+7E1F01:FF', 'description' => 'conformance',
             ]),
-            $this->errorStep('AddCheat rejects a malformed code', 'Emulator.AddCheat', [
+            // A malformed cheat is an operational outcome (category B): the
+            // bridge returns "failed" and dispatches an EmulatorError event,
+            // rather than a synchronous bridge error.
+            $this->callStep('AddCheat reports a malformed code as failed', 'Emulator.AddCheat', [
                 ...$surface, 'code' => 'not-a-cheat', 'description' => 'conformance',
-            ], code: 'INVALID_CHEAT'),
+            ], fn (?array $r) => ($r['status'] ?? null) === 'failed' && ($r['code'] ?? null) === 'INVALID_CHEAT'
+                ? null
+                : 'expected failed/INVALID_CHEAT, got '.json_encode($r)),
+            $this->waitStep('EmulatorError fires for the malformed cheat', 'Emulator.AddCheat', EmulatorError::class, timeout: 5, expects: [
+                'code' => 'INVALID_CHEAT',
+            ]),
             $this->callStep('RemoveCheat removes the active code', 'Emulator.RemoveCheat', [
                 ...$surface, 'code' => '7E1F00:01+7E1F01:FF',
             ], fn (?array $r) => ($r['status'] ?? null) === 'removed'
@@ -326,15 +335,6 @@ class ConformanceRunner
             $this->okStep('Stop tears down', 'Emulator.Stop', $surface),
             $this->waitStep('EmulatorStopped fires', 'Emulator.Stop', EmulatorStopped::class, timeout: 5),
             $this->statusStep('Status is stopped after stop', 'stopped'),
-            [
-                'label' => 'EmulatorError not exercised',
-                'function' => 'Emulator.*',
-                'run' => fn () => $this->skip(
-                    'EmulatorError not exercised',
-                    'Emulator.*',
-                    'runtime-failure event; cannot be triggered deliberately',
-                ),
-            ],
         ];
     }
 
@@ -480,10 +480,5 @@ class ConformanceRunner
     private function fail(string $label, string $function, string $detail): array
     {
         return ['label' => $label, 'function' => $function, 'status' => 'fail', 'detail' => $detail];
-    }
-
-    private function skip(string $label, string $function, string $detail): array
-    {
-        return ['label' => $label, 'function' => $function, 'status' => 'skipped', 'detail' => $detail];
     }
 }

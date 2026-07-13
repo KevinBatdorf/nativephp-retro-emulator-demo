@@ -83,7 +83,9 @@ class FakeNative
         $code = $payload['code'] ?? '';
 
         if (! preg_match('/^[0-9A-Fa-f]+:[0-9A-Fa-f]+(\+[0-9A-Fa-f]+:[0-9A-Fa-f]+)*$/', $code)) {
-            return json_encode(['status' => 'error', 'code' => 'INVALID_CHEAT', 'message' => 'no valid pairs', 'data' => []]);
+            // Category B: operational outcome — "failed" plus an EmulatorError
+            // event, not a synchronous bridge error.
+            return json_encode(['status' => 'failed', 'code' => 'INVALID_CHEAT', 'message' => 'no valid pairs']);
         }
 
         $this->cheats[$code] = true;
