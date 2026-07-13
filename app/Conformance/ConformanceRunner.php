@@ -295,8 +295,16 @@ class ConformanceRunner
             ], fn (?array $r) => ($r['status'] ?? null) === 'disabled' && array_key_exists('hasVibrator', $r ?? [])
                 ? null
                 : 'expected status=disabled with hasVibrator, got '.json_encode($r)),
-            $this->errorStep('SetShader with path is NOT_IMPLEMENTED', 'Emulator.SetShader', [
-                ...$surface, 'path' => 'crt-royale.slangp',
+            // A preset that fails to load is an operational outcome (category B):
+            // the bridge returns "failed" + dispatches SHADER_FAILED, rather than
+            // the old NOT_IMPLEMENTED bridge error (shaders are implemented now).
+            $this->callStep('SetShader reports a bad preset as failed', 'Emulator.SetShader', [
+                ...$surface, 'path' => '/data/local/tmp/nonexistent.slangp',
+            ], fn (?array $r) => ($r['status'] ?? null) === 'failed' && ($r['code'] ?? null) === 'SHADER_FAILED'
+                ? null
+                : 'expected failed/SHADER_FAILED, got '.json_encode($r)),
+            $this->waitStep('EmulatorError fires for the bad preset', 'Emulator.SetShader', EmulatorError::class, timeout: 5, expects: [
+                'code' => 'SHADER_FAILED',
             ]),
             $this->okStep('SetShader null clears', 'Emulator.SetShader', [...$surface, 'path' => null]),
             $this->okStep('AddCheat registers a valid code', 'Emulator.AddCheat', [
