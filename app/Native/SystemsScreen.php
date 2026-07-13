@@ -76,6 +76,26 @@ class SystemsScreen extends NativeComponent
         $this->status = 'sfc — SuFami: Poi Poi Ninja World';
     }
 
+    public function playBsx(): void
+    {
+        $emu = Emulator::surface('showcase');
+
+        if ($this->current !== '') {
+            $emu->stop();
+        }
+
+        // BS-X / Satellaview: BS-X base BIOS + a BS Memory cassette in its slot.
+        $emu->loadSystem('sfc')->loadRom([
+            'base' => '/data/local/tmp/bsx-bios.sfc',
+            'slotA' => '/data/local/tmp/satella.bs',
+        ]);
+        $emu->connectDevice(1, Device::Gamepad);
+        $this->swapped = false;
+
+        $this->current = 'sfc';
+        $this->status = 'sfc — BS-X: Satella Walker';
+    }
+
     public function toggleSwap(): void
     {
         $this->swapped = ! $this->swapped;

@@ -78,7 +78,7 @@ return [
     |
     */
 
-    'start_url' => env('NATIVEPHP_START_URL', '/'),
+    'start_url' => env('NATIVEPHP_START_URL', '/home'),
 
     /*
     |--------------------------------------------------------------------------
@@ -202,6 +202,16 @@ return [
         'storage/framework/cache',
         'storage/framework/testing',
         'storage/logs/laravel.log',
+        // The retro-emulator plugin is a symlinked path repo; its dev tree
+        // (C++ sources, gradle project, nested dev vendor with dangling
+        // symlinks) is not needed at runtime and breaks/bloats the bundle.
+        // Only its src/ and resources/ (the shipped .so) must ship.
+        'vendor/kevinbatdorf/retro-emulator/vendor',
+        'vendor/kevinbatdorf/retro-emulator/ares',
+        'vendor/kevinbatdorf/retro-emulator/android',
+        'vendor/kevinbatdorf/retro-emulator/build',
+        'vendor/kevinbatdorf/retro-emulator/native/vendor',
+        'vendor/kevinbatdorf/retro-emulator/.git',
     ],
 
     /*
