@@ -286,8 +286,17 @@ class ConformanceRunner
             ]),
             $this->okStep('FastForward on', 'Emulator.FastForward', [...$surface, 'enabled' => true]),
             $this->okStep('FastForward off', 'Emulator.FastForward', [...$surface, 'enabled' => false]),
-            $this->errorStep('SetInputMapping is NOT_IMPLEMENTED', 'Emulator.SetInputMapping', [
-                ...$surface, 'port' => 1, 'mappings' => ['a' => 'button_a'],
+            $this->okStep('SetInputMapping swaps A and B', 'Emulator.SetInputMapping', [
+                ...$surface, 'port' => 1, 'mappings' => ['a' => 'b', 'b' => 'a'],
+            ]),
+            // An unknown button is a category-A programmer error: a synchronous
+            // UNKNOWN_BUTTON bridge error (the PHP wrapper re-raises it), not an
+            // event — remapping is implemented now.
+            $this->errorStep('SetInputMapping rejects an unknown button', 'Emulator.SetInputMapping', [
+                ...$surface, 'port' => 1, 'mappings' => ['a' => 'nope'],
+            ], code: 'UNKNOWN_BUTTON'),
+            $this->okStep('SetInputMapping empty map resets the port', 'Emulator.SetInputMapping', [
+                ...$surface, 'port' => 1, 'mappings' => [],
             ]),
             $this->okStep('SetRumble enables forwarding', 'Emulator.SetRumble', [...$surface, 'enabled' => true]),
             $this->callStep('SetRumble disables and reports vibrator', 'Emulator.SetRumble', [

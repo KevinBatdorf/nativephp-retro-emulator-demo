@@ -17,6 +17,8 @@ class SystemsScreen extends NativeComponent
 
     public string $status = 'pick a system';
 
+    public bool $swapped = false;
+
     public function playSfc(): void
     {
         $this->play('sfc');
@@ -49,6 +51,15 @@ class SystemsScreen extends NativeComponent
 
         $this->current = 'sfc';
         $this->status = 'sfc — alttp.sfc';
+    }
+
+    public function toggleSwap(): void
+    {
+        $this->swapped = ! $this->swapped;
+        Emulator::surface('showcase')->setInputMapping(
+            1, $this->swapped ? ['a' => 'b', 'b' => 'a'] : [],
+        );
+        $this->status = $this->swapped ? 'port 1: A/B swapped' : 'port 1: default mapping';
     }
 
     private function play(string $system): void

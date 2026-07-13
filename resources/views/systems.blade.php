@@ -7,5 +7,6 @@
         <native:button label="Game Boy" @press="playGb" />
         <native:button label="Mega Drive" @press="playMd" />
         <native:button label="Zelda" @press="playZelda" />
+        <native:button label="Swap A/B" @press="toggleSwap" />
     </native:row>
 </native:column>
