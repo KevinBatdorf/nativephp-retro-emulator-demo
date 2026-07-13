@@ -337,6 +337,25 @@ class ConformanceRunner
             $this->okStep('PressButton the Super Scope trigger', 'Emulator.PressButton', [
                 ...$surface, 'port' => 2, 'button' => 'Trigger',
             ]),
+            // Super Multitap: port 2 fans out to four players → logical ports 2-5.
+            $this->callStep('ConnectDevice a Super Multitap fans out to 4 players', 'Emulator.ConnectDevice', [
+                ...$surface, 'port' => 2, 'device' => 'Super Multitap',
+            ], fn (?array $r) => ($r['ports'] ?? null) === [2, 3, 4, 5]
+                ? null
+                : 'expected ports [2,3,4,5], got '.json_encode($r['ports'] ?? null)),
+            $this->callStep('GetPorts reports five logical players', 'Emulator.GetPorts', $surface, function (?array $r) {
+                $ports = array_map(fn ($p) => $p['port'], $r['ports'] ?? []);
+
+                return $ports === [1, 2, 3, 4, 5]
+                    ? null
+                    : 'expected logical ports 1..5, got '.json_encode($ports);
+            }),
+            $this->okStep('PressButton multitap player 4', 'Emulator.PressButton', [
+                ...$surface, 'port' => 4, 'button' => 'A',
+            ]),
+            $this->okStep('ReleaseButton multitap player 4', 'Emulator.ReleaseButton', [
+                ...$surface, 'port' => 4, 'button' => 'A',
+            ]),
             $this->okStep('SetRumble enables forwarding', 'Emulator.SetRumble', [...$surface, 'enabled' => true]),
             $this->callStep('SetRumble disables and reports vibrator', 'Emulator.SetRumble', [
                 ...$surface, 'enabled' => false,
