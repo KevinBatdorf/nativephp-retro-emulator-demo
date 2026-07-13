@@ -4,6 +4,7 @@ namespace App\Native;
 
 use App\Support\BundledRoms;
 use Illuminate\View\View;
+use KevinBatdorf\RetroEmulator\Device;
 use KevinBatdorf\RetroEmulator\Facades\Emulator;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -48,6 +49,8 @@ class SystemsScreen extends NativeComponent
         }
 
         $emu->loadSystem('sfc')->loadRom('/data/local/tmp/alttp.sfc');
+        $emu->connectDevice(1, Device::Gamepad);   // controllers are explicit now
+        $this->swapped = false;
 
         $this->current = 'sfc';
         $this->status = 'sfc — alttp.sfc';
@@ -56,8 +59,8 @@ class SystemsScreen extends NativeComponent
     public function toggleSwap(): void
     {
         $this->swapped = ! $this->swapped;
-        Emulator::surface('showcase')->setInputMapping(
-            1, $this->swapped ? ['a' => 'b', 'b' => 'a'] : [],
+        Emulator::surface('showcase')->getDevice(1)->remap(
+            $this->swapped ? ['a' => 'b', 'b' => 'a'] : [],
         );
         $this->status = $this->swapped ? 'port 1: A/B swapped' : 'port 1: default mapping';
     }
@@ -79,6 +82,8 @@ class SystemsScreen extends NativeComponent
         }
 
         $emu->loadSystem($system)->loadRom($rom);
+        $emu->connectDevice(1, Device::Gamepad);   // controllers are explicit now
+        $this->swapped = false;
 
         $this->current = $system;
         $this->status = "{$system} — ".basename($rom);

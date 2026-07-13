@@ -186,15 +186,20 @@ class ConformanceRunner
             $this->okStep('LoadSystem initialises sfc', 'Emulator.LoadSystem', [
                 ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false],
             ]),
-            $this->callStep('GetPorts matches the SfcButton enum', 'Emulator.GetPorts', $surface, function (?array $r) {
+            // Controllers are explicit (step 1.5): register a gamepad so GetPorts
+            // reports its buttons. The registration persists across the boot below.
+            $this->okStep('ConnectDevice a gamepad on port 1', 'Emulator.ConnectDevice', [
+                ...$surface, 'port' => 1, 'device' => 'Gamepad',
+            ]),
+            $this->callStep('GetPorts reports the connected gamepad buttons', 'Emulator.GetPorts', $surface, function (?array $r) {
                 $buttons = $r['ports'][0]['buttons'] ?? [];
                 $enum = array_map(fn ($case) => $case->value, SfcButton::cases());
                 sort($buttons);
                 sort($enum);
 
-                return $buttons === $enum
+                return $buttons === $enum && ($r['ports'][0]['device'] ?? null) === 'Gamepad'
                     ? null
-                    : 'port 1 buttons drifted from SfcButton: '.json_encode($r['ports'] ?? null);
+                    : 'port 1 gamepad buttons drifted from SfcButton: '.json_encode($r['ports'] ?? null);
             }),
             $this->okStep('LoadRom accepts the ROM', 'Emulator.LoadRom', [...$surface, 'path' => $romPath]),
             $this->waitStep('EmulatorStarted fires on first frame', 'Emulator.LoadRom', EmulatorStarted::class, timeout: 15),
@@ -286,6 +291,8 @@ class ConformanceRunner
             ]),
             $this->okStep('FastForward on', 'Emulator.FastForward', [...$surface, 'enabled' => true]),
             $this->okStep('FastForward off', 'Emulator.FastForward', [...$surface, 'enabled' => false]),
+            // Gamepad already registered on port 1 (persists from the earlier
+            // ConnectDevice), so these input steps have a device to drive.
             $this->okStep('SetInputMapping swaps A and B', 'Emulator.SetInputMapping', [
                 ...$surface, 'port' => 1, 'mappings' => ['a' => 'b', 'b' => 'a'],
             ]),
@@ -297,6 +304,25 @@ class ConformanceRunner
             ], code: 'UNKNOWN_BUTTON'),
             $this->okStep('SetInputMapping empty map resets the port', 'Emulator.SetInputMapping', [
                 ...$surface, 'port' => 1, 'mappings' => [],
+            ]),
+            // Device selection + the axis input channel (mouse).
+            $this->errorStep('ConnectDevice rejects an unsupported device', 'Emulator.ConnectDevice', [
+                ...$surface, 'port' => 1, 'device' => 'Super Scope',
+            ], code: 'UNSUPPORTED_DEVICE'),
+            $this->okStep('ConnectDevice a Mouse on port 2', 'Emulator.ConnectDevice', [
+                ...$surface, 'port' => 2, 'device' => 'Mouse',
+            ]),
+            $this->okStep('SetAxis feeds a mouse motion delta', 'Emulator.SetAxis', [
+                ...$surface, 'port' => 2, 'axis' => 'X', 'value' => -8,
+            ]),
+            $this->errorStep('SetAxis rejects an unknown axis', 'Emulator.SetAxis', [
+                ...$surface, 'port' => 2, 'axis' => 'Z', 'value' => 1,
+            ], code: 'INVALID_PARAMETERS'),
+            $this->okStep('PressButton the mouse Left button', 'Emulator.PressButton', [
+                ...$surface, 'port' => 2, 'button' => 'Left',
+            ]),
+            $this->okStep('ReleaseButton the mouse Left button', 'Emulator.ReleaseButton', [
+                ...$surface, 'port' => 2, 'button' => 'Left',
             ]),
             $this->okStep('SetRumble enables forwarding', 'Emulator.SetRumble', [...$surface, 'enabled' => true]),
             $this->callStep('SetRumble disables and reports vibrator', 'Emulator.SetRumble', [
