@@ -1,5 +1,6 @@
 <?php
 
+use App\Native\AudioTestScreen;
 use App\Native\ConformanceScreen;
 use App\Native\DeclarativeScreen;
 use App\Native\ErrorsScreen;
@@ -16,3 +17,4 @@ Route::native('/systems', SystemsScreen::class);
 Route::native('/probe', ProbeScreen::class);
 Route::native('/declarative', DeclarativeScreen::class);
 Route::native('/errors', ErrorsScreen::class);
+Route::native('/audio', AudioTestScreen::class);
