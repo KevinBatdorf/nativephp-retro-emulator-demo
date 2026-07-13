@@ -56,6 +56,26 @@ class SystemsScreen extends NativeComponent
         $this->status = 'sfc — alttp.sfc';
     }
 
+    public function playSufami(): void
+    {
+        $emu = Emulator::surface('showcase');
+
+        if ($this->current !== '') {
+            $emu->stop();
+        }
+
+        // Slotted media: SuFami Turbo base BIOS + a slot cartridge.
+        $emu->loadSystem('sfc')->loadRom([
+            'base' => '/data/local/tmp/sufami-bios.sfc',
+            'slotA' => '/data/local/tmp/poipoi.st',
+        ]);
+        $emu->connectDevice(1, Device::Gamepad);
+        $this->swapped = false;
+
+        $this->current = 'sfc';
+        $this->status = 'sfc — SuFami: Poi Poi Ninja World';
+    }
+
     public function toggleSwap(): void
     {
         $this->swapped = ! $this->swapped;
