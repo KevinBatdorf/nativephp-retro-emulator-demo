@@ -257,8 +257,56 @@ class ConformanceRunner
             $this->statusStep('Status is running after resume', 'running'),
             $this->okStep('StateSave to slot 1', 'Emulator.StateSave', [...$surface, 'slot' => 1]),
             $this->okStep('StateLoad from slot 1', 'Emulator.StateLoad', [...$surface, 'slot' => 1]),
-            $this->okStep('UndoStateSave succeeds', 'Emulator.UndoStateSave', $surface),
-            $this->okStep('UndoStateLoad succeeds', 'Emulator.UndoStateLoad', $surface),
+            [
+                // save(0x11) → save(0x22) → undoSave reverts the slot file to
+                // the 0x11 state — okStep alone once hid a permanent no-op
+                // (nothing wrote the undo files and okStep accepted it).
+                'label' => 'UndoStateSave reverts the slot file',
+                'function' => 'Emulator.UndoStateSave',
+                'run' => function () use ($surface) {
+                    $label = 'UndoStateSave reverts the slot file';
+                    $fn = 'Emulator.UndoStateSave';
+                    $this->call('Emulator.WriteMemory', [...$surface, 'address' => self::SCRATCH_ADDRESS, 'bytes' => [0x11]]);
+                    $this->call('Emulator.StateSave', [...$surface, 'slot' => 1]);
+                    $this->call('Emulator.WriteMemory', [...$surface, 'address' => self::SCRATCH_ADDRESS, 'bytes' => [0x22]]);
+                    $this->call('Emulator.StateSave', [...$surface, 'slot' => 1]);
+                    $undo = $this->call($fn, $surface);
+                    if ($this->isError($undo) || $undo === null) {
+                        return $this->fail($label, $fn, $this->describe($undo));
+                    }
+                    $this->call('Emulator.StateLoad', [...$surface, 'slot' => 1]);
+                    $read = $this->call('Emulator.ReadMemory', [...$surface, 'address' => self::SCRATCH_ADDRESS, 'length' => 1]);
+
+                    return ($read['bytes'][0] ?? null) == 0x11
+                        ? $this->pass($label, $fn, 'slot file reverted to the pre-overwrite state')
+                        : $this->fail($label, $fn, 'slot loaded '.json_encode($read).' — expected the 0x11 state');
+                },
+            ],
+            [
+                // load (state carries 0x11) over live 0x33 → undoLoad restores
+                // the pre-load 0x33 state.
+                'label' => 'UndoStateLoad restores the pre-load state',
+                'function' => 'Emulator.UndoStateLoad',
+                'run' => function () use ($surface) {
+                    $label = 'UndoStateLoad restores the pre-load state';
+                    $fn = 'Emulator.UndoStateLoad';
+                    $this->call('Emulator.WriteMemory', [...$surface, 'address' => self::SCRATCH_ADDRESS, 'bytes' => [0x33]]);
+                    $this->call('Emulator.StateLoad', [...$surface, 'slot' => 1]);
+                    $mid = $this->call('Emulator.ReadMemory', [...$surface, 'address' => self::SCRATCH_ADDRESS, 'length' => 1]);
+                    if (($mid['bytes'][0] ?? null) != 0x11) {
+                        return $this->fail($label, $fn, 'StateLoad did not restore the 0x11 state: '.json_encode($mid));
+                    }
+                    $undo = $this->call($fn, $surface);
+                    if ($this->isError($undo) || $undo === null) {
+                        return $this->fail($label, $fn, $this->describe($undo));
+                    }
+                    $read = $this->call('Emulator.ReadMemory', [...$surface, 'address' => self::SCRATCH_ADDRESS, 'length' => 1]);
+
+                    return ($read['bytes'][0] ?? null) == 0x33
+                        ? $this->pass($label, $fn, 'pre-load state restored')
+                        : $this->fail($label, $fn, 'read back '.json_encode($read).' — expected the 0x33 state');
+                },
+            ],
             $this->okStep('Screenshot captures a frame', 'Emulator.Screenshot', $surface),
             $this->okStep('SetAudio merges volume/balance', 'Emulator.SetAudio', [
                 ...$surface, 'options' => ['volume' => 80, 'balance' => 0],
