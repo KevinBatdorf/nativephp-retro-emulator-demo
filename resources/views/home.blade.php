@@ -16,7 +16,4 @@
         </native:lazy-grid>
     </native:scroll-view>
 
-    <native:row class="px-4 py-2 items-center bg-gray-950">
-        <native:button label="Settings" @navigate.none="'/settings'" />
-    </native:row>
 </native:column>

@@ -9,7 +9,7 @@
     $faceRows = match ($id) {
         'sfc' => [[null, 'X', null], ['Y', null, 'A'], [null, 'B', null]],
         'md' => [['X', 'Y', 'Z'], ['A', 'B', 'C']],
-        'n64' => [[null, 'C-Up', null], ['C-Left', null, 'C-Right'], ['B', 'C-Down', null], ['A', null, null]],
+        'n64' => [[null, 'C-Up', null], ['C-Left', null, 'C-Right'], [null, 'C-Down', null], ['B', 'A', null]],
         default => [[null, 'A'], ['B', null]],   // fc / gb / gbc / gba
     };
     $faceRows = array_values(array_filter(
@@ -39,18 +39,38 @@
     $transportBg = fn ($t) => ($t['active'] ?? false) ? 'bg-green-600/60'
         : ($flash === $t['label'] ? 'bg-blue-600/60' : 'bg-gray-800/60');
 
-    // Round game buttons; d-pad arms are square-ish. Translucent so the game
-    // reads through.
-    $btn = 'w-16 h-16 rounded-full bg-gray-700/40 items-center justify-center';
-    $pad = 'w-14 h-14 bg-gray-700/40 items-center justify-center';
-    $lbl = 'text-white/90 text-sm text-center';
+    // Per-button face colors — translucent over the game, styled like the
+    // console's own pad so on-screen labels read the way the game teaches them
+    // (Space Rescue Squad prompts a blue button, etc.). USA palettes.
+    $faceColor = fn ($b) => match ([$id, $b]) {
+        // SNES USA: A/B convex red-purple, X/Y concave blue-purple.
+        ['sfc', 'A'], ['sfc', 'B'] => 'bg-rose-600/55',
+        ['sfc', 'X'], ['sfc', 'Y'] => 'bg-indigo-600/55',
+        // Genesis: uniform charcoal face.
+        ['md', 'A'], ['md', 'B'], ['md', 'C'],
+        ['md', 'X'], ['md', 'Y'], ['md', 'Z'] => 'bg-gray-800/55',
+        // N64: blue A, green B, yellow C-cluster.
+        ['n64', 'A'] => 'bg-blue-600/55',
+        ['n64', 'B'] => 'bg-green-600/55',
+        default => str_starts_with($b, 'C-') ? 'bg-yellow-500/50' : 'bg-gray-700/45',
+    };
+
+    // White translucent border makes each button's footprint obvious over any
+    // game. Round face buttons; square-ish d-pad arms.
+    $ring = 'border border-white/40';
+    $btn = "w-16 h-16 rounded-full items-center justify-center $ring";
+    $pad = "w-14 h-14 bg-gray-700/45 items-center justify-center $ring";
+    $lbl = 'text-white text-sm text-center font-semibold';
 @endphp
 
 {{-- The game fills the screen; controls hug the corners like a real handheld:
      shoulders top, d-pad cross bottom-left, face cluster bottom-right,
      select/start centered. Transport lives behind the ☰ toggle. --}}
 <native:stack class="flex-1 bg-black">
-    <native:emulator name="play" class="w-full h-full" />
+    {{-- input-capture="global" installs a window-level gamepad capturer so the
+         Thor's built-in pad + any paired BT controller drive the game
+         regardless of view focus. Touch still reaches the overlay buttons. --}}
+    <native:emulator name="play" input-capture="global" class="w-full h-full" />
 
     <native:column class="w-full h-full justify-between">
         {{-- Top edge: back + shoulders + menu/settings --}}
@@ -122,12 +142,12 @@
                 @endforeach
             </native:row>
 
-            <native:column class="items-center gap-1">
+            <native:column class="items-center gap-2">
                 @foreach ($faceRows as $row)
-                    <native:row class="gap-1 items-center">
+                    <native:row class="gap-2 items-center">
                         @foreach ($row as $b)
                             @if ($b !== null)
-                                <native:pressable class="{{ $btn }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
+                                <native:pressable class="{{ $btn }} {{ $faceColor($b) }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
                                     <native:text class="{{ $lbl }}">{{ str_replace('C-', 'C', $b) }}</native:text>
                                 </native:pressable>
                             @else

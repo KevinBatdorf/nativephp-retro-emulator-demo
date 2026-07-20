@@ -5,20 +5,22 @@ namespace App\Native;
 use App\Support\Catalog;
 use App\Support\SettingsStore;
 use Illuminate\View\View;
-use KevinBatdorf\RetroEmulator\Device;
-use KevinBatdorf\RetroEmulator\Facades\Emulator;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Transition;
-use Native\Mobile\Facades\Dialog;
 
 /**
- * Play → ROM Settings. The per-system scope: region, per-system toggles (SFC
- * deepBlackBoost, GB colour emulation…), the peripheral device selector, and a
- * CRT override (inherit/on/off) layered over the global CRT toggle. Persisted
- * per system id; reset returns to defaults.
+ * In-game settings (⚙ from Play) — only the knobs a dev demoing the plugin
+ * would reach for: the CRT shader, the live picture/audio controls, and each
+ * system's own visible toggles (SFC deep-black boost, N64 quality/VI). Region
+ * and controller are NOT here — region auto-resolves from the ROM and the pad
+ * auto-connects, so a dropdown for either is just noise.
  *
- * "Apply & reboot" replaces the Play screen with a fresh boot so the new config
- * takes effect immediately (region/toggles need a reload).
+ * The bottom carries the raw config JSON handed to Emulator::loadSystem — the
+ * one "under the hood" view a plugin consumer actually wants to see.
+ *
+ * Picture/audio changes apply live (setVideo/setAudio on the running surface);
+ * the shader + per-system toggles need a fresh boot, so "Apply & reboot" is
+ * offered when one of those changed.
  */
 class RomSettingsScreen extends NativeComponent
 {
@@ -26,18 +28,27 @@ class RomSettingsScreen extends NativeComponent
 
     public string $rom = '';
 
-    public string $region = '';
+    public int $luminance = 100;
 
-    public string $device = 'Gamepad';
+    public int $saturation = 100;
 
-    public string $crt = 'inherit';
+    public int $gamma = 100;
 
-    /** deepBlackBoost / colorEmulation / … → current bool value. */
+    public bool $overscan = false;
+
+    public int $volume = 100;
+
+    public bool $crt = false;
+
+    /** deepBlackBoost / N64 quality toggles / … → current bool value. */
     public array $toggles = [];
+
+    /** Set when a boot-time setting (shader/toggle) changed since entry. */
+    public bool $rebootNeeded = false;
 
     public function navTitle(): string
     {
-        return 'ROM Settings';
+        return 'Settings';
     }
 
     public function mount(): void
@@ -49,50 +60,91 @@ class RomSettingsScreen extends NativeComponent
 
     private function hydrate(): void
     {
-        $s = SettingsStore::system($this->id);
-        $this->region = $s['region'] ?? '';
-        $this->device = $s['device'] ?? 'Gamepad';
-        $this->crt = $s['crt'] ?? 'inherit';
+        $g = SettingsStore::global();
+        $this->luminance = (int) $g['luminance'];
+        $this->saturation = (int) $g['saturation'];
+        $this->gamma = (int) $g['gamma'];
+        $this->overscan = (bool) $g['overscan'];
+        $this->volume = (int) $g['volume'];
+        $this->crt = (bool) $g['crt'];
 
+        $s = SettingsStore::system($this->id);
         $this->toggles = [];
         foreach (Catalog::toggles($this->id) as $field => $label) {
-            // Untouched toggles display the NATIVE default (weave/Expansion
-            // Pak run ON when unset), not a blanket false.
             $this->toggles[$field] = isset($s[$field])
                 ? (bool) $s[$field]
                 : Catalog::toggleDefault($this->id, $field);
         }
     }
 
-    public function setRegion(string $value): void
+    private function surface(): ?\KevinBatdorf\RetroEmulator\Emulator
     {
-        $this->region = $value === '(auto)' ? '' : $value;
-        SettingsStore::setSystem($this->id, 'region', $this->region);
+        try {
+            return \KevinBatdorf\RetroEmulator\Facades\Emulator::surface('play');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
-    public function setDevice(string $value): void
+    // ── Live picture / audio (apply immediately) ─────
+
+    public function setLuminance(float $v): void
     {
-        $this->device = $value;
-        SettingsStore::setSystem($this->id, 'device', $value);
+        $this->luminance = (int) round($v);
+        SettingsStore::setGlobal('luminance', $this->luminance);
+        $this->surface()?->setVideo(luminance: $this->luminance);
     }
 
-    public function setCrt(string $value): void
+    public function setSaturation(float $v): void
     {
-        $this->crt = $value;
-        SettingsStore::setSystem($this->id, 'crt', $value);
+        $this->saturation = (int) round($v);
+        SettingsStore::setGlobal('saturation', $this->saturation);
+        $this->surface()?->setVideo(saturation: $this->saturation);
+    }
+
+    public function setGamma(float $v): void
+    {
+        $this->gamma = (int) round($v);
+        SettingsStore::setGlobal('gamma', $this->gamma);
+        $this->surface()?->setVideo(gamma: (float) $this->gamma);
+    }
+
+    public function setOverscan(bool $on): void
+    {
+        $this->overscan = $on;
+        SettingsStore::setGlobal('overscan', $on);
+        $this->surface()?->setVideo(overscan: $on);
+    }
+
+    public function setVolume(float $v): void
+    {
+        $this->volume = (int) round($v);
+        SettingsStore::setGlobal('volume', $this->volume);
+        $this->surface()?->setVolume($this->volume);
+    }
+
+    // ── Boot-time settings (need a reboot) ───────────
+
+    public function setCrt(bool $on): void
+    {
+        $this->crt = $on;
+        SettingsStore::setGlobal('crt', $on);
+        $this->rebootNeeded = true;
     }
 
     public function setToggle(string $field, bool $on): void
     {
         $this->toggles[$field] = $on;
         SettingsStore::setSystem($this->id, $field, $on);
+        $this->rebootNeeded = true;
     }
 
     public function resetDefaults(): void
     {
+        SettingsStore::resetGlobal();
         SettingsStore::resetSystem($this->id);
         $this->hydrate();
-        Dialog::toast('Reset to defaults');
+        $this->rebootNeeded = true;
     }
 
     public function applyAndReboot(): void
@@ -106,31 +158,18 @@ class RomSettingsScreen extends NativeComponent
         $this->replace("/play/{$this->id}", ['rom' => $this->rom])->transition(Transition::None);
     }
 
-    /** Devices this system accepts on port 1, from Emulator::ports(). */
-    private function deviceOptions(): array
-    {
-        try {
-            $ports = Emulator::surface('play')->ports();
-            $supported = $ports[0]['supported'] ?? [];
-
-            if ($supported !== []) {
-                return $supported;
-            }
-        } catch (\Throwable) {
-            // Surface not staged — fall back to the full device set.
-        }
-
-        return array_map(fn (Device $d) => $d->value, Device::cases());
-    }
-
     public function render(): View
     {
-        $regions = Catalog::regions($this->id);
+        // The exact array Emulator::loadSystem() receives — the dev's
+        // "what's actually sent to the plugin" view.
+        $config = SettingsStore::configFor($this->id);
+        $configArray = is_object($config) && method_exists($config, 'toArray')
+            ? $config->toArray()
+            : (array) $config;
 
         return view('rom-settings', [
-            'regionOptions' => $regions === [] ? [] : ['(auto)', ...$regions],
-            'deviceOptions' => $this->deviceOptions(),
             'toggleLabels' => Catalog::toggles($this->id),
+            'configJson' => json_encode($configArray, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}',
         ]);
     }
 }

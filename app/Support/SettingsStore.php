@@ -10,7 +10,6 @@ use KevinBatdorf\RetroEmulator\Config\MdConfig;
 use KevinBatdorf\RetroEmulator\Config\N64Config;
 use KevinBatdorf\RetroEmulator\Config\SfcConfig;
 use KevinBatdorf\RetroEmulator\Config\SystemConfig;
-use KevinBatdorf\RetroEmulator\InputCapture;
 use KevinBatdorf\RetroEmulator\Region;
 use KevinBatdorf\RetroEmulator\Shaders;
 
@@ -105,9 +104,6 @@ class SettingsStore
         $s = self::system($id);
 
         $shared = [
-            // Window-level pad capture: the Thor's built-in controls (and any
-            // paired BT pad) drive the game regardless of view focus.
-            'inputCapture' => InputCapture::Global,
             'luminance' => (int) $g['luminance'],
             'saturation' => (int) $g['saturation'],
             'gamma' => (float) $g['gamma'],
