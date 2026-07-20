@@ -5,6 +5,7 @@ namespace App\Native;
 use App\Support\Catalog;
 use App\Support\SettingsStore;
 use Illuminate\View\View;
+use KevinBatdorf\RetroEmulator\Emulator;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Transition;
 
@@ -77,7 +78,7 @@ class RomSettingsScreen extends NativeComponent
         }
     }
 
-    private function surface(): ?\KevinBatdorf\RetroEmulator\Emulator
+    private function surface(): ?Emulator
     {
         try {
             return \KevinBatdorf\RetroEmulator\Facades\Emulator::surface('play');
@@ -169,6 +170,7 @@ class RomSettingsScreen extends NativeComponent
 
         return view('rom-settings', [
             'toggleLabels' => Catalog::toggles($this->id),
+            'controllers' => \KevinBatdorf\RetroEmulator\Facades\Emulator::inputDevices(),
             'configJson' => json_encode($configArray, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}',
         ]);
     }

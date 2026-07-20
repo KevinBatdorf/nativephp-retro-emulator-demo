@@ -39,6 +39,17 @@
                 <native:slider class="w-full" min="0" max="100" step="5" :value="$volume" @change="setVolume" />
             </native:column>
 
+            {{-- Which hardware controllers the OS reports as paired. The
+                 on-screen overlay always works; this just confirms real pads. --}}
+            <native:column class="gap-2">
+                <native:text class="text-white text-base font-semibold">Controllers</native:text>
+                @forelse ($controllers as $controller)
+                    <native:text native:key="{{ $loop->index }}" class="text-gray-200 text-sm">🎮 {{ $controller }}</native:text>
+                @empty
+                    <native:text class="text-gray-400 text-sm">No hardware controller paired — using on-screen controls.</native:text>
+                @endforelse
+            </native:column>
+
             {{-- Per-system options that visibly change the image. --}}
             @if ($toggleLabels !== [])
                 <native:column class="gap-2">
