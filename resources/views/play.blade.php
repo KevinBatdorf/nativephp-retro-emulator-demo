@@ -32,7 +32,7 @@
     // highlight is a background swap (colored bg-* provably renders).
     $bg = fn ($b, $rest) => ($held[$b] ?? false) ? 'bg-white' : $rest;
 
-    $ring = 'border border-white/40';
+    $ring = 'border-2 border-white/80';
     $lbl = 'text-white text-sm text-center font-semibold';
     $face = "w-14 h-14 rounded-full items-center justify-center $ring";
     $padCell = "w-12 h-12 items-center justify-center $ring";
