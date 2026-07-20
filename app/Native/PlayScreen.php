@@ -25,14 +25,19 @@ use Native\Mobile\Facades\Dialog;
  * overlay on top (stack). The ROM boots imperatively, RETRIED on each #[Poll]
  * tick until the native surface is actually attached — booting on a single
  * fixed tick races the surface lifecycle (worse under immersive/fullscreen) and
- * bricks with "no surface registered". Device connection + button discovery run
- * on the EmulatorStarted event, once the core is actually running.
+ * bricks with "no surface registered".
  *
- * Input model: game buttons use @pressDown/@pressUp on stock pressables,
- * which captures real touch down/up and calls press()/release() — so a button
- * is held only while the finger is down, like a real pad. Transport controls
- * stay taps: toggles (pause / fast-forward / rewind) show a persistent active
- * state; one-shot actions flash for a tick on press.
+ * Input model: game buttons use @pressDown/@pressUp on stock pressables, which
+ * captures real touch down/up and calls press()/release() — so a button is held
+ * only while the finger is down, like a real pad, and lights up on screen while
+ * held. The system's controller auto-connects at boot (the plugin defaults
+ * port 1 to the core's own pad), so the demo never re-connects — it just reads
+ * the port's button names once the core is running.
+ *
+ * Settings + transport live in one in-place overlay (the ☰ menu). Opening it
+ * pauses the game but KEEPS the surface alive — navigating to a separate screen
+ * would tear the surface down and kill the running game. Picture/audio apply
+ * live; shader + per-system toggles need a fresh boot, offered as "Apply".
  */
 class PlayScreen extends NativeComponent
 {
@@ -46,10 +51,11 @@ class PlayScreen extends NativeComponent
 
     public string $status = 'loading';
 
-    public string $device = 'Gamepad';
-
     /** Button names for port 1, as reported by Emulator::ports(). */
     public array $buttons = [];
+
+    /** Game buttons currently held (touch) → true, for the on-screen highlight. */
+    public array $held = [];
 
     /** Transport action most recently fired, for a one-tick press flash. */
     public string $flash = '';
@@ -58,7 +64,7 @@ class PlayScreen extends NativeComponent
 
     public bool $rewinding = false;
 
-    /** Transport drawer visibility — controls stay minimal until asked for. */
+    /** The one overlay: transport + settings. Game pauses while it's open. */
     public bool $menuOpen = false;
 
     /** True once loadRom has succeeded — stops the pump() boot-retry loop. */
@@ -68,6 +74,26 @@ class PlayScreen extends NativeComponent
     public int $attempts = 0;
 
     public string $error = '';
+
+    // ── Settings (mirrored into the overlay; persisted via SettingsStore) ──
+
+    public int $luminance = 100;
+
+    public int $saturation = 100;
+
+    public int $gamma = 100;
+
+    public bool $overscan = false;
+
+    public int $volume = 100;
+
+    public bool $crt = false;
+
+    /** deepBlackBoost / N64 quality toggles / … → current bool value. */
+    public array $toggles = [];
+
+    /** Set when a boot-time setting (shader/toggle) changed since the last boot. */
+    public bool $rebootNeeded = false;
 
     public function navTitle(): string
     {
@@ -90,10 +116,30 @@ class PlayScreen extends NativeComponent
         }
 
         $this->romName = $this->rom !== '' ? basename($this->rom) : '';
-        $this->device = SettingsStore::system($this->id)['device'] ?? 'Gamepad';
 
         if ($this->rom === '') {
             $this->error = 'No ROM supplied.';
+        }
+
+        $this->hydrateSettings();
+    }
+
+    private function hydrateSettings(): void
+    {
+        $g = SettingsStore::global();
+        $this->luminance = (int) $g['luminance'];
+        $this->saturation = (int) $g['saturation'];
+        $this->gamma = (int) $g['gamma'];
+        $this->overscan = (bool) $g['overscan'];
+        $this->volume = (int) $g['volume'];
+        $this->crt = (bool) $g['crt'];
+
+        $s = SettingsStore::system($this->id);
+        $this->toggles = [];
+        foreach (Catalog::toggles($this->id) as $field => $label) {
+            $this->toggles[$field] = isset($s[$field])
+                ? (bool) $s[$field]
+                : Catalog::toggleDefault($this->id, $field);
         }
     }
 
@@ -140,8 +186,11 @@ class PlayScreen extends NativeComponent
     }
 
     /**
-     * Core is running now — safe to connect the controller and read its buttons.
-     * Falls back to the static per-system button set if the port read hiccups.
+     * Core is running now — connect port 1's controller and read its buttons.
+     * "Gamepad" is every compiled system's default pad (the core's own
+     * SystemDef.device), so one connect drives them all. Falls back to the
+     * static per-system set if the port read is empty or hiccups, so the
+     * on-screen controls always render.
      */
     #[On(EmulatorStarted::class)]
     public function onStarted(string $surface = '', string $system = '', string $romPath = ''): void
@@ -154,15 +203,10 @@ class PlayScreen extends NativeComponent
 
         try {
             $emu = $this->emu();
-            $emu->connectDevice(1, Device::tryFrom($this->device) ?? Device::Gamepad);
-            $this->buttons = $emu->ports()[0]['buttons'] ?? Catalog::buttons($this->id);
+            $emu->connectDevice(1, Device::Gamepad);
+            $buttons = $emu->ports()[0]['buttons'] ?? [];
+            $this->buttons = $buttons !== [] ? $buttons : Catalog::buttons($this->id);
             $this->region = $emu->region();
-
-            if (SettingsStore::system($this->id)['crt'] !== 'off'
-                && (bool) SettingsStore::global()['crt']
-                && SettingsStore::crtPreset() === null) {
-                Dialog::toast('CRT filter requested but no .slangp preset is bundled.');
-            }
         } catch (\Throwable) {
             $this->buttons = Catalog::buttons($this->id);
         }
@@ -173,6 +217,8 @@ class PlayScreen extends NativeComponent
     /** Finger down on a game button (via @pressDown). */
     public function press(string $button): void
     {
+        $this->held[$button] = true;
+
         $this->guard(function () use ($button) {
             $pad = $this->emu()->getDevice(1)->setButtons([$button => true]);
 
@@ -187,6 +233,8 @@ class PlayScreen extends NativeComponent
     /** Finger up / cancel on a game button (via @pressUp). */
     public function release(string $button): void
     {
+        unset($this->held[$button]);
+
         $this->guard(function () use ($button) {
             $pad = $this->emu()->getDevice(1)->setButtons([$button => false]);
 
@@ -205,11 +253,24 @@ class PlayScreen extends NativeComponent
         }
     }
 
-    // ── Transport / showcase extras ─────────────────
+    // ── Overlay (transport + settings, game paused) ─────────
 
+    /** Toggle the overlay; pause while open, resume when closed. */
     public function toggleMenu(): void
     {
         $this->menuOpen = ! $this->menuOpen;
+
+        if ($this->status === 'loading') {
+            return;
+        }
+
+        if ($this->menuOpen) {
+            $this->guard(fn () => $this->emu()->pause());
+            $this->status = 'paused';
+        } else {
+            $this->guard(fn () => $this->emu()->resume());
+            $this->status = 'running';
+        }
     }
 
     public function togglePause(): void
@@ -253,15 +314,6 @@ class PlayScreen extends NativeComponent
         $this->guard(fn () => $this->emu()->fastForward($this->fastForward));
     }
 
-    public function bumpSpeed(float $delta): void
-    {
-        $this->flash = $delta < 0 ? 'Spd−' : 'Spd+';
-        $g = SettingsStore::global();
-        $speed = max(0.25, min(4.0, round(((float) $g['speed']) + $delta, 2)));
-        SettingsStore::setGlobal('speed', $speed);
-        $this->guard(fn () => $this->emu()->setSpeed($speed), "Speed {$speed}×");
-    }
-
     public function screenshot(): void
     {
         $this->flash = 'Shot';
@@ -273,16 +325,82 @@ class PlayScreen extends NativeComponent
         Dialog::toast($path ? 'Screenshot: '.basename($path) : 'Screenshot failed');
     }
 
-    /** Back to the ROM picker — stop the core, restore immersive, pop. */
+    // ── Settings (live picture/audio apply immediately) ─────
+
+    public function setLuminance(float $v): void
+    {
+        $this->luminance = (int) round($v);
+        SettingsStore::setGlobal('luminance', $this->luminance);
+        $this->guard(fn () => $this->emu()->setVideo(luminance: $this->luminance));
+    }
+
+    public function setSaturation(float $v): void
+    {
+        $this->saturation = (int) round($v);
+        SettingsStore::setGlobal('saturation', $this->saturation);
+        $this->guard(fn () => $this->emu()->setVideo(saturation: $this->saturation));
+    }
+
+    public function setGamma(float $v): void
+    {
+        $this->gamma = (int) round($v);
+        SettingsStore::setGlobal('gamma', $this->gamma);
+        $this->guard(fn () => $this->emu()->setVideo(gamma: (float) $this->gamma));
+    }
+
+    public function setOverscan(bool $on): void
+    {
+        $this->overscan = $on;
+        SettingsStore::setGlobal('overscan', $on);
+        $this->guard(fn () => $this->emu()->setVideo(overscan: $on));
+    }
+
+    public function setVolume(float $v): void
+    {
+        $this->volume = (int) round($v);
+        SettingsStore::setGlobal('volume', $this->volume);
+        $this->guard(fn () => $this->emu()->setVolume($this->volume));
+    }
+
+    public function setCrt(bool $on): void
+    {
+        $this->crt = $on;
+        SettingsStore::setGlobal('crt', $on);
+        $this->rebootNeeded = true;
+    }
+
+    public function setToggle(string $field, bool $on): void
+    {
+        $this->toggles[$field] = $on;
+        SettingsStore::setSystem($this->id, $field, $on);
+        $this->rebootNeeded = true;
+    }
+
+    public function resetSettings(): void
+    {
+        SettingsStore::resetGlobal();
+        SettingsStore::resetSystem($this->id);
+        $this->hydrateSettings();
+        $this->rebootNeeded = true;
+    }
+
+    /** Re-boot the running game in place to pick up shader / per-system changes. */
+    public function applyReboot(): void
+    {
+        $this->rebootNeeded = false;
+        $this->menuOpen = false;
+        $this->booted = false;
+        $this->attempts = 0;
+        $this->status = 'loading';
+        $this->guard(fn () => $this->emu()->stop());
+        // pump() will re-stage + re-load on the next tick.
+    }
+
+    /** Back to the console picker — stop the core, pop. */
     public function leave(): void
     {
         $this->guard(fn () => $this->emu()->stop());
         $this->back()->transition(Transition::None);
-    }
-
-    public function openRomSettings(): void
-    {
-        $this->navigate("/play/{$this->id}/settings", ['rom' => $this->rom])->transition(Transition::None);
     }
 
     /** Run a bridge call, turning a thrown EmulatorException into a toast. */
@@ -300,8 +418,16 @@ class PlayScreen extends NativeComponent
 
     public function render(): View
     {
+        $config = SettingsStore::configFor($this->id);
+        $configArray = is_object($config) && method_exists($config, 'toArray')
+            ? $config->toArray()
+            : (array) $config;
+
         return view('play', [
             'groups' => Catalog::groupButtons($this->buttons),
+            'toggleLabels' => Catalog::toggles($this->id),
+            'controllers' => Emulator::inputDevices(),
+            'configJson' => json_encode($configArray, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}',
         ]);
     }
 }

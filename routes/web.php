@@ -7,7 +7,6 @@ use App\Native\ErrorsScreen;
 use App\Native\HomeScreen;
 use App\Native\PlayScreen;
 use App\Native\ProbeScreen;
-use App\Native\RomSettingsScreen;
 use App\Native\ShaderProbeScreen;
 use App\Native\SystemsScreen;
 use Illuminate\Support\Facades\Route;
@@ -15,10 +14,8 @@ use Illuminate\Support\Facades\Route;
 // The app is native-only (start_url = /home); nothing should land here.
 Route::get('/', fn () => redirect('/home'));
 
-// ── Demo app (screens 1–3 + settings) ───────────────
+// ── Demo app (home + play; settings is an in-place overlay in PlayScreen) ──
 Route::native('/home', HomeScreen::class);
-// More specific route first so /play/{id}/settings never matches /play/{id}.
-Route::native('/play/{id}/settings', RomSettingsScreen::class);
 Route::native('/play/{id}', PlayScreen::class);
 
 // ── Hidden dev routes (the conformance gate + probes) ─
