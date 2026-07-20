@@ -210,7 +210,12 @@ return [
         'vendor/kevinbatdorf/retro-emulator/ares',
         'vendor/kevinbatdorf/retro-emulator/android',
         'vendor/kevinbatdorf/retro-emulator/build',
-        'vendor/kevinbatdorf/retro-emulator/native/vendor',
+        'vendor/kevinbatdorf/retro-emulator/native',
+        'vendor/kevinbatdorf/retro-emulator/ios',
+        'vendor/kevinbatdorf/retro-emulator/local',   // 3.4 GB of dev ROMs/firmware — the bundle-bloat culprit
+        'vendor/kevinbatdorf/retro-emulator/scripts',
+        'vendor/kevinbatdorf/retro-emulator/tests',
+        'vendor/kevinbatdorf/retro-emulator/.claude',
         'vendor/kevinbatdorf/retro-emulator/.git',
     ],
 
