@@ -10,10 +10,11 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "kevinbatdorf/nativephp-fullscreen": "@dev",
         "kevinbatdorf/retro-emulator": "@dev",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
-        "nativephp/mobile": "dev-element#068b44ede58b3d59aae3fbfdb5eb1a4fceaf6a54",
+        "nativephp/mobile": "dev-main#ac0c81ccb24d80e48a02b323aa50cfe97ca1d2c6 as 4.0.0",
         "nativephp/native-ui": "dev-main"
     },
     "require-dev": {
@@ -92,6 +93,11 @@
     "prefer-stable": true,
     "repositories": [
         {
+            "name": "nativephp-plugins",
+            "type": "composer",
+            "url": "https://plugins.nativephp.com"
+        },
+        {
             "name": "native-ui",
             "type": "vcs",
             "url": "https://github.com/nativephp/native-ui"
@@ -100,6 +106,11 @@
             "name": "retro-emulator",
             "type": "path",
             "url": "../nativephp-retro-emulator"
+        },
+        {
+            "name": "fullscreen",
+            "type": "path",
+            "url": "../nativephp-fullscreen"
         }
     ]
 }

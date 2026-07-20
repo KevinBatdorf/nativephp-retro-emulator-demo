@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use KevinBatdorf\Fullscreen\FullscreenServiceProvider;
 use KevinBatdorf\RetroEmulator\RetroEmulatorServiceProvider;
 use Nativephp\NativeUi\NativeUIServiceProvider;
 
@@ -38,6 +39,7 @@ class NativeServiceProvider extends ServiceProvider
         return [
             NativeUIServiceProvider::class,
             RetroEmulatorServiceProvider::class,
+            FullscreenServiceProvider::class,
         ];
     }
 }

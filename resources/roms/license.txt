@@ -1,0 +1,25 @@
+Bundled homebrew — credits & licenses
+======================================
+
+The games bundled with this demo are freely-licensed homebrew, included to
+demonstrate the emulator. Credit and license for each below.
+
+- NES — "Super Tilt Bro." by Sylvain Gadrat (sgadrat), WTFPL.
+  https://github.com/sgadrat/super-tilt-bro
+- Game Boy — "Tobu Tobu Girl" by Tangram Games (Simon Larsen). Code MIT,
+  assets CC-BY-4.0 (credit: "Tobu Tobu Girl by Tangram Games").
+  https://tangramgames.dk/tobutobugirl/
+- Game Boy Color — "Tobu Tobu Girl Deluxe" by Tangram Games. Code MIT,
+  assets CC-BY-4.0. https://tangramgames.dk/tobutobugirldx/
+- SNES — "Space Rescue Squad" by Marcus Rowe (undisbeliever), music by
+  KungFuFurby. Code zlib; resources source-available.
+  https://github.com/undisbeliever/space-rescue-squad
+- Genesis — "Miniplanets" by Javier Degirolmo (Sik), zlib.
+  https://github.com/sikthehedgehog/miniplanets
+- Game Boy Advance — "Butano Fighter" / "Varooom 3D" by Gustavo Valiente,
+  made with the Butano engine, zlib. https://github.com/GValiente/butano
+  (GBA games require a user-supplied GBA BIOS at runtime.)
+
+Bundled shader:
+- "crt-lottes" CRT scanline shader by Timothy Lottes, public domain
+  (libretro slang-shaders, crt/crt-lottes.slangp).
