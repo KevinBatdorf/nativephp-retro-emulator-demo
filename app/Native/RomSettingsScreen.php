@@ -15,7 +15,7 @@ use Native\Mobile\Facades\Dialog;
  * Play → ROM Settings. The per-system scope: region, per-system toggles (SFC
  * deepBlackBoost, GB colour emulation…), the peripheral device selector, and a
  * CRT override (inherit/on/off) layered over the global CRT toggle. Persisted
- * per system id; reset returns to defaults (and drops the saved ROM folder).
+ * per system id; reset returns to defaults.
  *
  * "Apply & reboot" replaces the Play screen with a fresh boot so the new config
  * takes effect immediately (region/toggles need a reload).
@@ -92,7 +92,7 @@ class RomSettingsScreen extends NativeComponent
     {
         SettingsStore::resetSystem($this->id);
         $this->hydrate();
-        Dialog::toast('Reset to defaults (ROM folder cleared)');
+        Dialog::toast('Reset to defaults');
     }
 
     public function applyAndReboot(): void

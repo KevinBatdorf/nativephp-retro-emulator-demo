@@ -10,7 +10,6 @@ use App\Native\ProbeScreen;
 use App\Native\RomSettingsScreen;
 use App\Native\SettingsScreen;
 use App\Native\ShaderProbeScreen;
-use App\Native\SystemScreen;
 use App\Native\SystemsScreen;
 use Illuminate\Support\Facades\Route;
 
@@ -20,7 +19,6 @@ Route::get('/', fn () => redirect('/home'));
 // ── Demo app (screens 1–3 + settings) ───────────────
 Route::native('/home', HomeScreen::class);
 Route::native('/settings', SettingsScreen::class);
-Route::native('/system/{id}', SystemScreen::class);
 // More specific route first so /play/{id}/settings never matches /play/{id}.
 Route::native('/play/{id}/settings', RomSettingsScreen::class);
 Route::native('/play/{id}', PlayScreen::class);

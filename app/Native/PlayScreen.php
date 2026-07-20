@@ -2,8 +2,8 @@
 
 namespace App\Native;
 
+use App\Support\BundledRoms;
 use App\Support\Catalog;
-use App\Support\Library;
 use App\Support\SettingsStore;
 use Illuminate\View\View;
 use KevinBatdorf\Fullscreen\Facades\Fullscreen;
@@ -58,6 +58,9 @@ class PlayScreen extends NativeComponent
 
     public bool $rewinding = false;
 
+    /** Transport drawer visibility — controls stay minimal until asked for. */
+    public bool $menuOpen = false;
+
     /** True once loadRom has succeeded — stops the pump() boot-retry loop. */
     public bool $booted = false;
 
@@ -80,10 +83,10 @@ class PlayScreen extends NativeComponent
         $this->id = (string) $this->param('id');
         $this->rom = (string) $this->data('rom');
 
-        // Reached directly (no ROM in nav data)? Fall back to the bundled
-        // homebrew ROM so /play/{id} is always launchable.
+        // Home taps navigate here with no ROM in nav data — every system boots
+        // its bundled homebrew game.
         if ($this->rom === '') {
-            $this->rom = (string) (Library::scan($this->id)[0]['path'] ?? '');
+            $this->rom = (string) (BundledRoms::forSystem($this->id) ?? '');
         }
 
         $this->romName = $this->rom !== '' ? basename($this->rom) : '';
@@ -102,13 +105,7 @@ class PlayScreen extends NativeComponent
     /** The typed config the ROM boots with (global ⊕ per-system). */
     private function config(): SystemConfig|Config|array
     {
-        $config = SettingsStore::configFor($this->id);
-
-        if ($config instanceof SystemConfig && ($bios = Library::bios($this->id))) {
-            $config->biosPath = $bios;
-        }
-
-        return $config;
+        return SettingsStore::configFor($this->id);
     }
 
     /**
@@ -209,6 +206,11 @@ class PlayScreen extends NativeComponent
     }
 
     // ── Transport / showcase extras ─────────────────
+
+    public function toggleMenu(): void
+    {
+        $this->menuOpen = ! $this->menuOpen;
+    }
 
     public function togglePause(): void
     {

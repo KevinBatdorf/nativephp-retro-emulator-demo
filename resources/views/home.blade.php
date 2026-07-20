@@ -7,7 +7,7 @@
                 @php
                     $sid = $system['id'];
                     $sname = \App\Support\Catalog::shortName($sid, $system['name']);
-                    $sroute = '/system/'.$sid;
+                    $sroute = '/play/'.$sid;
                 @endphp
                 <native:button native:key="{{ $sid }}" label="{{ $sname }}" class="w-full" @navigate.none="$sroute" />
             @empty
