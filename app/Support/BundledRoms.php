@@ -17,7 +17,8 @@ class BundledRoms
         'gbc' => 'tobu-tobu-girl-dx.gbc',    // MIT + CC-BY (color)
         'md' => 'miniplanets.bin',           // zlib
         'gba' => 'butano-fighter.gba',       // zlib
-        'n64' => 'gamejam2024.z64',          // MIT — N64brew Game Jam 2024 minigame collection
+        // n64 iceboxed for v2 (see HomeScreen::ICEBOXED) — its bundled
+        // homebrew is removed from resources/roms to keep the bundle lean.
     ];
 
     public static function path(string $filename): ?string
