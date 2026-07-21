@@ -88,7 +88,16 @@
             @endif
         </native:column>
 
-        {{-- Bottom edge: d-pad cross · select/start · face cluster --}}
+        {{-- Bottom edge. Select/Start get their own centered row — three
+             clusters in one row overflow a portrait phone's width. --}}
+        <native:column class="w-full gap-2">
+        <native:row class="w-full justify-center gap-2">
+            @foreach ($groups['system'] as $b)
+                <native:pressable class="py-1 px-4 rounded-full {{ $ring }} {{ $bg($b, 'bg-gray-700/40') }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
+                    <native:text class="text-white/80 text-xs">{{ strtoupper($b) }}</native:text>
+                </native:pressable>
+            @endforeach
+        </native:row>
         <native:row class="w-full px-3 pb-5 items-end justify-between">
             <native:column class="items-center">
                 @foreach ([[null, 'Up', null], ['Left', null, 'Right'], [null, 'Down', null]] as $row)
@@ -105,14 +114,6 @@
                     </native:row>
                 @endforeach
             </native:column>
-
-            <native:row class="gap-2 pb-1">
-                @foreach ($groups['system'] as $b)
-                    <native:pressable class="py-1 px-4 rounded-full {{ $ring }} {{ $bg($b, 'bg-gray-700/40') }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
-                        <native:text class="text-white/80 text-xs">{{ strtoupper($b) }}</native:text>
-                    </native:pressable>
-                @endforeach
-            </native:row>
 
             @if ($id === 'n64')
                 {{-- Real N64 right face: B/A on a diagonal (green B upper-left,
@@ -169,6 +170,7 @@
                 </native:column>
             @endif
         </native:row>
+        </native:column>
     </native:column>
 
     {{-- In-place overlay: transport + settings over the paused game. Opening it
@@ -204,8 +206,12 @@
                          preset (crt-lottes) for the demo, so it's a toggle. --}}
                     <native:column class="w-full gap-2">
                         <native:text class="text-white text-base font-semibold">CRT shader</native:text>
-                        <native:text class="text-gray-200 text-sm">crt-lottes — one global preset, applies to every system.</native:text>
-                        <native:toggle label="Enable" :value="$crt" @change="setCrt" />
+                        {{-- EDGE toggle labels render near-invisible on dark bg;
+                             carry every label as our own white text instead. --}}
+                        <native:row class="w-full items-center justify-between">
+                            <native:text class="text-gray-200 text-sm">crt-lottes — applies to every system</native:text>
+                            <native:toggle label="" :value="$crt" @change="setCrt" />
+                        </native:row>
                     </native:column>
 
                     {{-- Picture — applies live on the running surface. --}}
@@ -223,7 +229,10 @@
                             <native:text class="text-gray-200 text-sm">Gamma — {{ $gamma }}</native:text>
                             <native:slider class="w-full" min="50" max="200" step="5" :value="$gamma" @change="setGamma" />
                         </native:column>
-                        <native:toggle label="Show overscan borders" :value="$overscan" @change="setOverscan" />
+                        <native:row class="w-full items-center justify-between">
+                            <native:text class="text-gray-200 text-sm">Show overscan borders</native:text>
+                            <native:toggle label="" :value="$overscan" @change="setOverscan" />
+                        </native:row>
                     </native:column>
 
                     {{-- Audio. --}}
@@ -238,7 +247,10 @@
                         <native:column class="w-full gap-2">
                             <native:text class="text-white text-base font-semibold">{{ strtoupper($id) }} options</native:text>
                             @foreach ($toggleLabels as $field => $label)
-                                <native:toggle native:key="{{ $field }}" label="{{ $label }}" :value="$toggles[$field] ?? false" @change="setToggle('{{ $field }}')" />
+                                <native:row native:key="{{ $field }}" class="w-full items-center justify-between">
+                                    <native:text class="text-gray-200 text-sm">{{ $label }}</native:text>
+                                    <native:toggle label="" :value="$toggles[$field] ?? false" @change="setToggle('{{ $field }}')" />
+                                </native:row>
                             @endforeach
                         </native:column>
                     @endif
@@ -254,7 +266,9 @@
                     </native:column>
 
                     @if ($rebootNeeded)
-                        <native:button label="Apply &amp; reboot" @press="applyReboot" />
+                        {{-- Plain "and": EDGE renders label text verbatim (no
+                             HTML-entity decode), so &amp; shows literally. --}}
+                        <native:button label="Apply and reboot" @press="applyReboot" />
                         <native:text class="text-gray-300 text-xs">Shader + system options take effect on reboot.</native:text>
                     @endif
 
