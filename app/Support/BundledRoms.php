@@ -43,8 +43,32 @@ class BundledRoms
         return $target;
     }
 
+    /** Per-system ROM extensions a dropped-in file may use. */
+    private const EXTENSIONS = [
+        'fc' => ['nes'],
+        'sfc' => ['sfc', 'smc'],
+        'gb' => ['gb'],
+        'gbc' => ['gbc'],
+        'md' => ['bin', 'md', 'gen'],
+        'gba' => ['gba'],
+        'n64' => ['z64', 'n64', 'v64'],
+    ];
+
     public static function forSystem(string $system): ?string
     {
+        // A ROM the user dropped into storage/app/roms/<system>/ overrides the
+        // bundled homebrew — the demo's "bring your own game" path (no picker
+        // UI; push via adb / Files). First match in name order wins.
+        $dir = storage_path('app/roms/'.$system);
+        foreach (self::EXTENSIONS[$system] ?? [] as $ext) {
+            $found = glob($dir.'/*.'.$ext) ?: [];
+            if ($found !== []) {
+                sort($found);
+
+                return $found[0];
+            }
+        }
+
         $filename = self::SYSTEMS[$system] ?? null;
 
         return $filename === null ? null : self::path($filename);
