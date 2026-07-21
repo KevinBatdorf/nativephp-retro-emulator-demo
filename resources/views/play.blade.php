@@ -115,14 +115,30 @@
             </native:row>
 
             @if ($id === 'n64')
-                {{-- Real N64 face: tight yellow C-diamond over a big green B / blue A. --}}
-                @php $c = "w-11 h-11 rounded-full items-center justify-center $ring"; @endphp
-                <native:column class="items-center gap-1">
-                    <native:column class="items-center">
+                {{-- Real N64 right face: B/A on a diagonal (green B upper-left,
+                     big blue A lower-right) with the yellow C-diamond to their
+                     upper-right, exactly like the controller. --}}
+                @php
+                    $c = "w-10 h-10 rounded-full items-center justify-center $ring";
+                    $bBtn = "w-12 h-12 rounded-full items-center justify-center $ring";
+                    $aBtn = "w-16 h-16 rounded-full items-center justify-center $ring";
+                @endphp
+                <native:row class="items-end gap-3">
+                    <native:column class="items-start pb-1">
+                        @if ($has('B'))
+                            <native:pressable class="{{ $bBtn }} {{ $bg('B', 'bg-green-600/55') }}" @pressDown="press('B')" @pressUp="release('B')"><native:text class="{{ $lbl }}">B</native:text></native:pressable>
+                        @endif
+                        @if ($has('A'))
+                            <native:row class="pl-8">
+                                <native:pressable class="{{ $aBtn }} {{ $bg('A', 'bg-blue-600/55') }}" @pressDown="press('A')" @pressUp="release('A')"><native:text class="{{ $lbl }}">A</native:text></native:pressable>
+                            </native:row>
+                        @endif
+                    </native:column>
+                    <native:column class="items-center pb-6">
                         @if ($has('C-Up'))
                             <native:pressable class="{{ $c }} {{ $bg('C-Up', 'bg-yellow-500/60') }}" @pressDown="press('C-Up')" @pressUp="release('C-Up')"><native:text class="{{ $lbl }}">C↑</native:text></native:pressable>
                         @endif
-                        <native:row class="gap-4">
+                        <native:row class="gap-3">
                             @if ($has('C-Left'))
                                 <native:pressable class="{{ $c }} {{ $bg('C-Left', 'bg-yellow-500/60') }}" @pressDown="press('C-Left')" @pressUp="release('C-Left')"><native:text class="{{ $lbl }}">C←</native:text></native:pressable>
                             @endif
@@ -134,15 +150,7 @@
                             <native:pressable class="{{ $c }} {{ $bg('C-Down', 'bg-yellow-500/60') }}" @pressDown="press('C-Down')" @pressUp="release('C-Down')"><native:text class="{{ $lbl }}">C↓</native:text></native:pressable>
                         @endif
                     </native:column>
-                    <native:row class="gap-2 items-center">
-                        @if ($has('B'))
-                            <native:pressable class="{{ $face }} {{ $bg('B', 'bg-green-600/55') }}" @pressDown="press('B')" @pressUp="release('B')"><native:text class="{{ $lbl }}">B</native:text></native:pressable>
-                        @endif
-                        @if ($has('A'))
-                            <native:pressable class="{{ $face }} {{ $bg('A', 'bg-blue-600/55') }}" @pressDown="press('A')" @pressUp="release('A')"><native:text class="{{ $lbl }}">A</native:text></native:pressable>
-                        @endif
-                    </native:row>
-                </native:column>
+                </native:row>
             @else
                 <native:column class="items-center gap-2">
                     @foreach ($faceRows as $row)
@@ -192,10 +200,12 @@
                         @endforeach
                     </native:column>
 
-                    {{-- Shader — the headline visual feature. --}}
+                    {{-- Shader — the headline visual feature. One global CRT
+                         preset (crt-lottes) for the demo, so it's a toggle. --}}
                     <native:column class="w-full gap-2">
-                        <native:text class="text-white text-base font-semibold">Shader</native:text>
-                        <native:toggle label="CRT filter" :value="$crt" @change="setCrt" />
+                        <native:text class="text-white text-base font-semibold">CRT shader</native:text>
+                        <native:text class="text-gray-200 text-sm">crt-lottes — one global preset, applies to every system.</native:text>
+                        <native:toggle label="Enable" :value="$crt" @change="setCrt" />
                     </native:column>
 
                     {{-- Picture — applies live on the running surface. --}}

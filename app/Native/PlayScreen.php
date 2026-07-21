@@ -186,11 +186,10 @@ class PlayScreen extends NativeComponent
     }
 
     /**
-     * Core is running now — connect port 1's controller and read its buttons.
-     * "Gamepad" is every compiled system's default pad (the core's own
-     * SystemDef.device), so one connect drives them all. Falls back to the
-     * static per-system set if the port read is empty or hiccups, so the
-     * on-screen controls always render.
+     * Core is running now — read port 1's buttons. The plugin auto-connects
+     * each system's own default pad at boot and ports() reports it, so no
+     * explicit connectDevice is needed. Falls back to the static per-system
+     * set if the port read is empty or hiccups, so controls always render.
      */
     #[On(EmulatorStarted::class)]
     public function onStarted(string $surface = '', string $system = '', string $romPath = ''): void
@@ -203,7 +202,6 @@ class PlayScreen extends NativeComponent
 
         try {
             $emu = $this->emu();
-            $emu->connectDevice(1, Device::Gamepad);
             $buttons = $emu->ports()[0]['buttons'] ?? [];
             $this->buttons = $buttons !== [] ? $buttons : Catalog::buttons($this->id);
             $this->region = $emu->region();
