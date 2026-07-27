@@ -38,7 +38,6 @@ class Catalog
         'gbc' => ['gbc'],
         'gba' => ['gba'],
         'md' => ['md', 'gen', 'smd', 'bin'],
-        'n64' => ['n64', 'z64', 'v64'],
     ];
 
     /**
@@ -52,7 +51,6 @@ class Catalog
         'gb' => [],
         'gbc' => [],
         'gba' => [],
-        'n64' => ['NTSC', 'PAL', 'MPAL'],
     ];
 
     /** D-pad button names, in every system's port. */
@@ -67,7 +65,7 @@ class Catalog
     /** Short, grid-friendly console labels (fall back to the systems() name). */
     public const SHORT_NAMES = [
         'fc' => 'NES', 'sfc' => 'SNES', 'gb' => 'Game Boy', 'gbc' => 'GBC',
-        'gba' => 'GBA', 'md' => 'Mega Drive', 'n64' => 'N64',
+        'gba' => 'GBA', 'md' => 'Mega Drive',
     ];
 
     public static function shortName(string $system, string $fallback = ''): string
@@ -96,29 +94,8 @@ class Catalog
         'gbc' => ['B', 'Select', 'Start', 'Up', 'Down', 'Left', 'Right', 'A'],
         'gba' => ['B', 'Select', 'Start', 'Up', 'Down', 'Left', 'Right', 'A', 'L', 'R'],
         'md' => ['B', 'A', 'Mode', 'Start', 'Up', 'Down', 'Left', 'Right', 'C', 'X', 'Y', 'Z'],
-        'n64' => ['Up', 'Down', 'Left', 'Right', 'B', 'A', 'C-Up', 'C-Down', 'C-Left', 'C-Right', 'L', 'R', 'Z', 'Start'],
     ];
 
-    /**
-     * On-screen analog-stick surrogate: overlay d-pad presses also hold the
-     * stick at full deflection (Controller::holdAxis). Most N64 games move on
-     * the stick, not the d-pad, so a button-only overlay can't play them.
-     * button => [axis name, deflection]; ares full range is ±32767.
-     */
-    public const STICK_SURROGATE = [
-        'n64' => [
-            'Up' => ['Y-Axis', -32767],
-            'Down' => ['Y-Axis', 32767],
-            'Left' => ['X-Axis', -32767],
-            'Right' => ['X-Axis', 32767],
-        ],
-    ];
-
-    /** @return array<string, array{0: string, 1: int}> button => [axis, deflection] */
-    public static function stickSurrogate(string $system): array
-    {
-        return self::STICK_SURROGATE[$system] ?? [];
-    }
 
     public static function buttons(string $system): array
     {
@@ -172,27 +149,19 @@ class Catalog
                 'colorEmulation' => 'Colour emulation',
                 'interframeBlending' => 'Interframe blending',
             ],
-            'n64' => [
-                'disableVideoInterfaceProcessing' => 'Disable VI processing (speed)',
-                'weaveDeinterlacing' => 'Weave deinterlacing',
-                'supersampling' => 'Supersampling',
-                'homebrewMode' => 'Homebrew mode',
-                'expansionPak' => 'Expansion Pak',
-            ],
             default => [],
         };
     }
 
     /**
      * Native default for a toggle — what the core runs with when the user never
-     * touched it. The settings UI shows these instead of a blanket "false" so
-     * an untouched toggle reflects reality (weave/Expansion Pak default ON).
+     * touched it, so an untouched toggle reflects reality rather than a
+     * blanket "false".
      */
     public static function toggleDefault(string $system, string $field): bool
     {
         return match ([$system, $field]) {
             ['sfc', 'deepBlackBoost'] => false,
-            ['n64', 'weaveDeinterlacing'], ['n64', 'expansionPak'] => true,
             default => false,
         };
     }

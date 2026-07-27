@@ -17,8 +17,6 @@ class BundledRoms
         'gbc' => 'tobu-tobu-girl-dx.gbc',    // MIT + CC-BY (color)
         'md' => 'miniplanets.bin',           // zlib
         'gba' => 'butano-fighter.gba',       // zlib
-        // n64 iceboxed for v2 (see HomeScreen::ICEBOXED) — its bundled
-        // homebrew is removed from resources/roms to keep the bundle lean.
     ];
 
     public static function path(string $filename): ?string
@@ -52,7 +50,6 @@ class BundledRoms
         'gbc' => ['gbc'],
         'md' => ['bin', 'md', 'gen'],
         'gba' => ['gba'],
-        'n64' => ['z64', 'n64', 'v64'],
     ];
 
     public static function forSystem(string $system): ?string

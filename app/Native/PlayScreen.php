@@ -89,7 +89,7 @@ class PlayScreen extends NativeComponent
 
     public bool $crt = false;
 
-    /** deepBlackBoost / N64 quality toggles / … → current bool value. */
+    /** Per-system toggles (deepBlackBoost, colour emulation, …) → bool. */
     public array $toggles = [];
 
     /** Set when a boot-time setting (shader/toggle) changed since the last boot. */
@@ -217,15 +217,7 @@ class PlayScreen extends NativeComponent
     {
         $this->held[$button] = true;
 
-        $this->guard(function () use ($button) {
-            $pad = $this->emu()->getDevice(1)->setButtons([$button => true]);
-
-            // N64 moves on the analog stick, not the d-pad — overlay d-pad
-            // presses also hold the stick at full deflection (see Catalog).
-            if ($stick = Catalog::stickSurrogate($this->id)[$button] ?? null) {
-                $pad->holdAxis($stick[0], $stick[1]);
-            }
-        });
+        $this->guard(fn () => $this->emu()->getDevice(1)->setButtons([$button => true]));
     }
 
     /** Finger up / cancel on a game button (via @pressUp). */
@@ -233,13 +225,7 @@ class PlayScreen extends NativeComponent
     {
         unset($this->held[$button]);
 
-        $this->guard(function () use ($button) {
-            $pad = $this->emu()->getDevice(1)->setButtons([$button => false]);
-
-            if ($stick = Catalog::stickSurrogate($this->id)[$button] ?? null) {
-                $pad->holdAxis($stick[0], 0);
-            }
-        });
+        $this->guard(fn () => $this->emu()->getDevice(1)->setButtons([$button => false]));
     }
 
     /** Clear the one-tick transport action flash. */

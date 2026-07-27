@@ -7,7 +7,6 @@ use KevinBatdorf\RetroEmulator\Config\FcConfig;
 use KevinBatdorf\RetroEmulator\Config\GbConfig;
 use KevinBatdorf\RetroEmulator\Config\GbaConfig;
 use KevinBatdorf\RetroEmulator\Config\MdConfig;
-use KevinBatdorf\RetroEmulator\Config\N64Config;
 use KevinBatdorf\RetroEmulator\Config\SfcConfig;
 use KevinBatdorf\RetroEmulator\Config\SystemConfig;
 use KevinBatdorf\RetroEmulator\Region;
@@ -131,18 +130,6 @@ class SettingsStore
             'fc' => new FcConfig(...$shared, region: $region),
             'md' => new MdConfig(...$shared, region: $region),
             'gba' => new GbaConfig(...$shared),
-            // Toggles pass null when untouched so the core's desktop-parity
-            // defaults stay authoritative (weave + Expansion Pak default ON).
-            'n64' => new N64Config(
-                ...$shared,
-                region: $region,
-                supersampling: isset($s['supersampling']) ? (bool) $s['supersampling'] : null,
-                disableVideoInterfaceProcessing: isset($s['disableVideoInterfaceProcessing'])
-                    ? (bool) $s['disableVideoInterfaceProcessing'] : null,
-                weaveDeinterlacing: isset($s['weaveDeinterlacing']) ? (bool) $s['weaveDeinterlacing'] : null,
-                homebrewMode: isset($s['homebrewMode']) ? (bool) $s['homebrewMode'] : null,
-                expansionPak: isset($s['expansionPak']) ? (bool) $s['expansionPak'] : null,
-            ),
             default => array_filter(
                 [...$shared, 'region' => $region?->value],
                 fn ($v) => $v !== null,
