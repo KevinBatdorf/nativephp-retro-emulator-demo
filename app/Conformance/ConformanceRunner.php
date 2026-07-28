@@ -410,9 +410,8 @@ class ConformanceRunner
             ], fn (?array $r) => ($r['status'] ?? null) === 'disabled' && array_key_exists('hasVibrator', $r ?? [])
                 ? null
                 : 'expected status=disabled with hasVibrator, got '.json_encode($r)),
-            // A preset that fails to load is an operational outcome (category B):
-            // the bridge returns "failed" + dispatches SHADER_FAILED, rather than
-            // the old NOT_IMPLEMENTED bridge error (shaders are implemented now).
+            // Category B: a failed preset returns "failed" and dispatches an
+            // EmulatorError, so the fluent command still returns cleanly.
             $this->callStep('SetShader reports a bad preset as failed', 'Emulator.SetShader', [
                 ...$surface, 'path' => '/data/local/tmp/nonexistent.slangp',
             ], fn (?array $r) => ($r['status'] ?? null) === 'failed' && ($r['code'] ?? null) === 'SHADER_FAILED'
@@ -447,6 +446,21 @@ class ConformanceRunner
                 ? null
                 : 'status is '.json_encode($r['status'] ?? null).', expected not_found'),
             $this->okStep('ClearCheats succeeds', 'Emulator.ClearCheats', $surface),
+            $this->callStep('GetInputDevices lists hardware pads', 'Emulator.GetInputDevices', $surface,
+                // Empty is a valid answer — the on-screen overlay works either way.
+                fn (?array $r) => is_array($r['devices'] ?? null)
+                    ? null
+                    : 'expected a devices array, got '.json_encode($r)),
+            // Staging a real Sufami Turbo slot ROM needs media this app does not
+            // bundle, so only the missing-path contract is deterministic here.
+            $this->callStep('StageSlot reports a missing slot ROM as failed', 'Emulator.StageSlot', [
+                ...$surface, 'index' => 0, 'path' => '/data/local/tmp/nonexistent.st',
+            ], fn (?array $r) => ($r['status'] ?? null) === 'failed' && ($r['code'] ?? null) === 'ROM_NOT_FOUND'
+                ? null
+                : 'expected failed/ROM_NOT_FOUND, got '.json_encode($r)),
+            $this->waitStep('EmulatorError fires for the missing slot ROM', 'Emulator.StageSlot', EmulatorError::class, timeout: 5, expects: [
+                'code' => 'ROM_NOT_FOUND',
+            ]),
             $this->okStep('PressButton Start', 'Emulator.PressButton', [...$surface, 'port' => 1, 'button' => 'Start']),
             $this->okStep('ReleaseButton Start', 'Emulator.ReleaseButton', [...$surface, 'port' => 1, 'button' => 'Start']),
             $this->okStep('SetButtons merges state', 'Emulator.SetButtons', [
@@ -530,7 +544,7 @@ class ConformanceRunner
         ];
     }
 
-    private function errorStep(string $label, string $function, array $payload, string $code = 'NOT_IMPLEMENTED'): array
+    private function errorStep(string $label, string $function, array $payload, string $code): array
     {
         return [
             'label' => $label,

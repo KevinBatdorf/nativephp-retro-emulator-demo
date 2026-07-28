@@ -1,6 +1,7 @@
 <?php
 
 use App\Conformance\ConformanceRunner;
+use KevinBatdorf\RetroEmulator\Buttons\SfcButton;
 use KevinBatdorf\RetroEmulator\Events\EmulatorPaused;
 use KevinBatdorf\RetroEmulator\Events\EmulatorStarted;
 use KevinBatdorf\RetroEmulator\Events\MemoryChanged;
@@ -8,11 +9,21 @@ use KevinBatdorf\RetroEmulator\Events\MemoryRead;
 
 /**
  * A fake native layer implementing the documented bridge contract: success
- * responses are bare data JSON, errors are {"status":"error","code":...},
- * and the v1 de-scoped functions return NOT_IMPLEMENTED.
+ * responses are bare data JSON, category-A programmer errors are
+ * {"status":"error","code":...}, and category-B operational outcomes return
+ * {"status":"failed","code":...} alongside an EmulatorError event.
+ *
+ * Modelled on the SNES paths of ares_jni.cpp / EmulatorFunctions.kt, so a
+ * contract change on the native side surfaces here as a failing step.
  */
 class FakeNative
 {
+    /** Logical port ceiling — EmulatorState::kMaxPorts. */
+    private const MAX_PORTS = 5;
+
+    /** Physical controller ports on the SNES — core_sfc.cpp `.ports`. */
+    private const PHYSICAL_PORTS = 2;
+
     /** @var list<array{function: string, payload: array}> */
     public array $calls = [];
 
@@ -20,6 +31,8 @@ class FakeNative
     public array $overrides = [];
 
     private string $status = 'stopped';
+
+    private bool $systemLoaded = false;
 
     /** @var array<int, int> */
     private array $memory = [];
@@ -30,6 +43,20 @@ class FakeNative
     private bool $rewindEnabled = false;
 
     private bool $rewinding = false;
+
+    /** Physical port => ares peripheral name. */
+    private array $connected = [];
+
+    /** Logical port => [lowercased emulated button => source button]. */
+    private array $remap = [];
+
+    /** Slot number => whole-memory snapshot, standing in for the slot files. */
+    private array $slots = [];
+
+    /** @var ?array{slot: int, state: array} */
+    private ?array $undoSave = null;
+
+    private ?array $undoLoad = null;
 
     public function __invoke(string $function, string $json): ?string
     {
@@ -46,13 +73,24 @@ class FakeNative
             ]]),
             'Emulator.GetStatus' => json_encode(['status' => $this->status]),
             'Emulator.GetRegion' => json_encode(['region' => 'NTSC']),
-            'Emulator.GetPorts' => json_encode(['ports' => [
-                ['port' => 1, 'buttons' => ['B', 'Y', 'Select', 'Start', 'Up', 'Down', 'Left', 'Right', 'A', 'X', 'L', 'R']],
-            ]]),
+            'Emulator.GetInputDevices' => json_encode(['devices' => []]),
+            'Emulator.LoadSystem' => $this->loadSystem(),
+            'Emulator.GetPorts' => $this->getPorts(),
+            'Emulator.ConnectDevice' => $this->connectDevice($payload),
+            'Emulator.SetInputMapping' => $this->setInputMapping($payload),
+            'Emulator.PressButton' => $this->pressButton($payload, 'pressed'),
+            'Emulator.ReleaseButton' => $this->pressButton($payload, 'released'),
+            'Emulator.SetAxis' => $this->setAxis($payload),
+            'Emulator.AimAt' => $this->aimAt($payload),
+            'Emulator.StageSlot' => $this->stageSlot($payload),
             'Emulator.LoadRom' => $this->transition('running'),
             'Emulator.Pause' => $this->transition('paused'),
             'Emulator.Resume' => $this->transition('running'),
             'Emulator.Stop' => $this->transition('stopped'),
+            'Emulator.StateSave' => $this->stateSave($payload),
+            'Emulator.StateLoad' => $this->stateLoad($payload),
+            'Emulator.UndoStateSave' => $this->undoStateSave(),
+            'Emulator.UndoStateLoad' => $this->undoStateLoad(),
             'Emulator.ReadMemory' => json_encode([
                 'address' => $payload['address'],
                 'bytes' => array_map(
@@ -63,10 +101,7 @@ class FakeNative
             'Emulator.WriteMemory' => $this->write($payload),
             'Emulator.Configure' => $this->configure($payload),
             'Emulator.ToggleRewind' => $this->toggleRewind(),
-            'Emulator.SetShader' => ($payload['path'] ?? null) !== null
-                ? $this->notImplemented()
-                : '{}',
-            'Emulator.SetInputMapping' => $this->notImplemented(),
+            'Emulator.SetShader' => $this->setShader($payload),
             'Emulator.SetRumble' => json_encode([
                 'status' => ($payload['enabled'] ?? false) ? 'enabled' : 'disabled',
                 'hasVibrator' => true,
@@ -78,14 +113,325 @@ class FakeNative
         };
     }
 
+    /**
+     * Non-default-gamepad SNES devices, mirroring ares_jni.cpp's deviceTable().
+     * A multitap is a container: no inputs of its own, `block` logical ports.
+     *
+     * @return array<string, array{buttons: list<string>, axes: list<string>, block?: int}>
+     */
+    private function deviceTable(): array
+    {
+        return [
+            'Mouse' => ['buttons' => ['Left', 'Right'], 'axes' => ['X', 'Y']],
+            'Super Scope' => ['buttons' => ['Trigger', 'Cursor', 'Turbo', 'Pause'], 'axes' => ['X', 'Y']],
+            'Justifier' => ['buttons' => ['Trigger', 'Start'], 'axes' => ['X', 'Y']],
+            'Super Multitap' => ['buttons' => [], 'axes' => [], 'block' => 4],
+        ];
+    }
+
+    /** @return list<string> */
+    private function padButtons(): array
+    {
+        return array_map(fn (SfcButton $case) => $case->value, SfcButton::cases());
+    }
+
+    /** @return list<string> */
+    private function supportedDevices(): array
+    {
+        return ['Gamepad', ...array_keys($this->deviceTable())];
+    }
+
+    /** @return ?array{buttons: list<string>, axes: list<string>, block?: int} */
+    private function descriptorFor(string $device): ?array
+    {
+        if ($device === 'Gamepad') {
+            return ['buttons' => $this->padButtons(), 'axes' => []];
+        }
+
+        return $this->deviceTable()[$device] ?? null;
+    }
+
+    /**
+     * Logical ports in fan-out order, as ares_jni.cpp's buildPortsJson() emits
+     * them: a multitap expands to `block` gamepads, every other device takes one.
+     *
+     * @return list<array{port: int, physical: int, device: ?string, buttons: list<string>, axes: list<string>, supported: list<string>}>
+     */
+    private function logicalPorts(): array
+    {
+        $ports = [];
+        $logical = 1;
+
+        for ($physical = 1; $physical <= self::PHYSICAL_PORTS && $logical <= self::MAX_PORTS; $physical++) {
+            // An unregistered port 1 still reports the system pad — the native
+            // effectiveDeviceName() fallback.
+            $name = $this->connected[$physical] ?? ($physical === 1 ? 'Gamepad' : null);
+            $block = $name === null ? 1 : ($this->deviceTable()[$name]['block'] ?? 1);
+            $fanOut = $block > 1;
+
+            for ($i = 0; $i < $block && $logical <= self::MAX_PORTS; $i++, $logical++) {
+                $device = $fanOut ? 'Gamepad' : $name;
+                $descriptor = $device === null ? null : $this->descriptorFor($device);
+                $ports[] = [
+                    'port' => $logical,
+                    'physical' => $physical,
+                    'device' => $descriptor === null ? null : $device,
+                    'buttons' => $descriptor['buttons'] ?? [],
+                    'axes' => $descriptor['axes'] ?? [],
+                    'supported' => $this->supportedDevices(),
+                ];
+            }
+        }
+
+        return $ports;
+    }
+
+    private function logicalPort(int $port): ?array
+    {
+        foreach ($this->logicalPorts() as $entry) {
+            if ($entry['port'] === $port) {
+                return $entry['device'] === null ? null : $entry;
+            }
+        }
+
+        return null;
+    }
+
+    private function loadSystem(): string
+    {
+        $this->systemLoaded = true;
+
+        return json_encode(['status' => 'loaded']);
+    }
+
+    private function getPorts(): string
+    {
+        if (! $this->systemLoaded) {
+            return $this->error('SYSTEM_NOT_LOADED', 'Call LoadSystem before GetPorts');
+        }
+
+        $ports = array_map(
+            fn (array $p) => array_diff_key($p, ['physical' => null]),
+            $this->logicalPorts(),
+        );
+
+        return json_encode(['ports' => $ports]);
+    }
+
+    private function connectDevice(array $payload): string
+    {
+        if (! $this->systemLoaded) {
+            return $this->error('SYSTEM_NOT_LOADED', 'no system is loaded');
+        }
+
+        $port = $payload['port'] ?? null;
+        if (! is_int($port) || $port < 1 || $port > self::PHYSICAL_PORTS) {
+            return $this->error('INVALID_PARAMETERS', 'invalid port for this system');
+        }
+
+        $device = $payload['device'] ?? '';
+        if ($device === '') {
+            unset($this->connected[$port]);
+
+            return json_encode(['status' => 'connected', 'port' => $port, 'device' => '', 'ports' => [$port]]);
+        }
+
+        if (! in_array($device, $this->supportedDevices(), true)) {
+            return $this->error('UNSUPPORTED_DEVICE', "device not supported: {$device}");
+        }
+
+        $this->connected[$port] = $device;
+        $ports = array_values(array_map(
+            fn (array $p) => $p['port'],
+            array_filter($this->logicalPorts(), fn (array $p) => $p['physical'] === $port),
+        ));
+
+        return json_encode(['status' => 'connected', 'port' => $port, 'device' => $device, 'ports' => $ports]);
+    }
+
+    private function setInputMapping(array $payload): string
+    {
+        $port = $payload['port'] ?? null;
+        if (! is_int($port)) {
+            return $this->error('INVALID_PARAMETERS', 'port is required');
+        }
+
+        $entry = $this->logicalPort($port);
+        if ($entry === null) {
+            return $this->error('INVALID_PARAMETERS', 'no controller registered on this port');
+        }
+
+        $mappings = $payload['mappings'] ?? null;
+        if (! is_array($mappings)) {
+            return $this->error('INVALID_PARAMETERS', 'mappings map is required');
+        }
+
+        // Validate the whole batch first so a bad entry leaves the remap intact.
+        $resolved = [];
+        foreach ($mappings as $emulated => $source) {
+            foreach ([$emulated, $source] as $name) {
+                if ($this->bitForButtonName($entry['buttons'], (string) $name) === null) {
+                    return $this->error('UNKNOWN_BUTTON', "Unknown button: {$name}");
+                }
+            }
+            $resolved[strtolower((string) $emulated)] = $source;
+        }
+
+        if ($resolved === []) {
+            unset($this->remap[$port]);
+        } else {
+            $this->remap[$port] = [...$this->remap[$port] ?? [], ...$resolved];
+        }
+
+        return json_encode(['status' => 'mapped', 'count' => count($resolved)]);
+    }
+
+    private function bitForButtonName(array $buttons, string $name): ?string
+    {
+        foreach ($buttons as $button) {
+            if (strtolower($button) === strtolower($name)) {
+                return $button;
+            }
+        }
+
+        return null;
+    }
+
+    private function pressButton(array $payload, string $status): string
+    {
+        $entry = $this->logicalPort($payload['port'] ?? 1);
+        $button = $payload['button'] ?? null;
+
+        if (! is_string($button)) {
+            return $this->error('INVALID_PARAMETERS', 'button is required');
+        }
+        if ($entry === null || $this->bitForButtonName($entry['buttons'], $button) === null) {
+            return $this->error('UNKNOWN_BUTTON', "Unknown button: {$button}");
+        }
+
+        return json_encode(['status' => $status, 'button' => $button]);
+    }
+
+    private function setAxis(array $payload): string
+    {
+        $entry = $this->logicalPort($payload['port'] ?? 1);
+        $axis = $payload['axis'] ?? null;
+
+        if (! is_string($axis)) {
+            return $this->error('INVALID_PARAMETERS', 'axis is required');
+        }
+        if ($entry === null || ! in_array($axis, $entry['axes'], true)) {
+            return $this->error('INVALID_PARAMETERS', 'invalid parameters');
+        }
+
+        return json_encode(['status' => 'ok', 'axis' => $axis, 'value' => $payload['value'] ?? 0]);
+    }
+
+    private function aimAt(array $payload): string
+    {
+        $entry = $this->logicalPort($payload['port'] ?? 1);
+        $x = $payload['x'] ?? null;
+        $y = $payload['y'] ?? null;
+
+        if (! is_numeric($x) || ! is_numeric($y)) {
+            return $this->error('INVALID_PARAMETERS', 'x is required');
+        }
+        // Light-guns are the only devices exposing both axes.
+        if ($entry === null || array_diff(['X', 'Y'], $entry['axes']) !== []) {
+            return $this->error('INVALID_PARAMETERS', 'invalid parameters');
+        }
+
+        return json_encode(['status' => 'ok', 'x' => $x, 'y' => $y]);
+    }
+
+    private function stageSlot(array $payload): string
+    {
+        $path = $payload['path'] ?? null;
+        if (! is_string($path)) {
+            return $this->error('INVALID_PARAMETERS', 'path is required');
+        }
+        if (! is_file($path)) {
+            return $this->operationalError('ROM_NOT_FOUND', "slot ROM not found: {$path}");
+        }
+
+        return json_encode(['status' => 'staged', 'index' => $payload['index'] ?? 0]);
+    }
+
+    private function stateSave(array $payload): string
+    {
+        $slot = $payload['slot'] ?? 1;
+
+        // The slot's previous file moves aside before the new state lands, so
+        // undoStateSave can revert it.
+        if (isset($this->slots[$slot])) {
+            $this->undoSave = ['slot' => $slot, 'state' => $this->slots[$slot]];
+        }
+        $this->slots[$slot] = $this->memory;
+
+        return json_encode(['status' => 'saved', 'slot' => $slot, 'path' => "/states/{$slot}.state"]);
+    }
+
+    private function stateLoad(array $payload): string
+    {
+        $slot = $payload['slot'] ?? 1;
+
+        // Snapshot before touching the slot, even when the slot turns out empty.
+        $this->undoLoad = $this->memory;
+
+        if (! isset($this->slots[$slot])) {
+            return $this->operationalError('SLOT_EMPTY', "No state in slot {$slot}");
+        }
+        $this->memory = $this->slots[$slot];
+
+        return json_encode(['status' => 'loaded', 'slot' => $slot]);
+    }
+
+    private function undoStateSave(): string
+    {
+        if ($this->undoSave === null) {
+            return json_encode(['status' => 'nothing_to_undo']);
+        }
+
+        $this->slots[$this->undoSave['slot']] = $this->undoSave['state'];
+        $slot = $this->undoSave['slot'];
+        $this->undoSave = null;
+
+        return json_encode(['status' => 'undone', 'slot' => $slot]);
+    }
+
+    private function undoStateLoad(): string
+    {
+        if ($this->undoLoad === null) {
+            return json_encode(['status' => 'nothing_to_undo']);
+        }
+
+        $this->memory = $this->undoLoad;
+        $this->undoLoad = null;
+
+        return json_encode(['status' => 'undone']);
+    }
+
+    private function setShader(array $payload): string
+    {
+        $raw = $payload['path'] ?? null;
+        $path = ($raw === null || $raw === 'none' || $raw === '') ? null : $raw;
+
+        if ($path === null) {
+            return json_encode(['status' => 'cleared']);
+        }
+        if (! is_file($path)) {
+            return $this->operationalError('SHADER_FAILED', "Failed to load shader preset '{$path}'");
+        }
+
+        return json_encode(['status' => 'applied']);
+    }
+
     private function addCheat(array $payload): string
     {
         $code = $payload['code'] ?? '';
 
         if (! preg_match('/^[0-9A-Fa-f]+:[0-9A-Fa-f]+(\+[0-9A-Fa-f]+:[0-9A-Fa-f]+)*$/', $code)) {
-            // Category B: operational outcome — "failed" plus an EmulatorError
-            // event, not a synchronous bridge error.
-            return json_encode(['status' => 'failed', 'code' => 'INVALID_CHEAT', 'message' => 'no valid pairs']);
+            return $this->operationalError('INVALID_CHEAT', "No valid ADDR:VALUE pairs in '{$code}'");
         }
 
         $this->cheats[$code] = true;
@@ -130,7 +476,7 @@ class FakeNative
         $options = $payload['options'] ?? [];
 
         if (! in_array($options['runAhead'] ?? 0, [0, 1], true)) {
-            return json_encode(['status' => 'error', 'code' => 'INVALID_PARAMETERS', 'message' => 'runAhead must be 0 or 1', 'data' => []]);
+            return $this->error('INVALID_PARAMETERS', 'runAhead must be 0 or 1');
         }
 
         if (array_key_exists('rewind', $options)) {
@@ -144,7 +490,7 @@ class FakeNative
     private function toggleRewind(): string
     {
         if (! $this->rewindEnabled) {
-            return json_encode(['status' => 'error', 'code' => 'REWIND_DISABLED', 'message' => 'rewind capture is off', 'data' => []]);
+            return $this->error('REWIND_DISABLED', 'rewind capture is off');
         }
 
         $this->rewinding = ! $this->rewinding;
@@ -152,9 +498,19 @@ class FakeNative
         return json_encode(['status' => $this->rewinding ? 'rewinding' : 'playing']);
     }
 
-    private function notImplemented(): string
+    /** Category A: a programmer error the PHP wrapper re-raises synchronously. */
+    private function error(string $code, string $message): string
     {
-        return json_encode(['status' => 'error', 'code' => 'NOT_IMPLEMENTED', 'message' => 'not supported in v1', 'data' => []]);
+        return json_encode(['status' => 'error', 'code' => $code, 'message' => $message, 'data' => []]);
+    }
+
+    /**
+     * Category B: an operational outcome. The real bridge also dispatches an
+     * EmulatorError here; the test harness feeds that event on the runner's wait.
+     */
+    private function operationalError(string $code, string $message): string
+    {
+        return json_encode(['status' => 'failed', 'code' => $code, 'message' => $message]);
     }
 }
 
@@ -236,7 +592,7 @@ it('exercises every bridge function declared in the plugin manifest', function (
     $declared = array_column($manifest['bridge_functions'], 'name');
     $called = array_unique(array_column($native->calls, 'function'));
 
-    expect($declared)->toHaveCount(36)
+    expect($declared)->toHaveCount(41)
         ->and(array_values(array_diff($declared, $called)))->toBe([]);
 });
 
@@ -269,7 +625,7 @@ it('fails a step when the bridge returns no response', function () {
         ->and($failed[0]['detail'])->toContain('no response');
 });
 
-it('fails a de-scoped step when the function unexpectedly succeeds', function () {
+it('fails an error step when the function unexpectedly succeeds', function () {
     $native = new FakeNative;
     $native->overrides['Emulator.SetInputMapping'] = fn () => '{}';
     $time = 0.0;
@@ -279,7 +635,7 @@ it('fails a de-scoped step when the function unexpectedly succeeds', function ()
 
     $failed = failures($state);
     expect(array_column($failed, 'function'))->toContain('Emulator.SetInputMapping')
-        ->and($failed[0]['detail'])->toContain('expected NOT_IMPLEMENTED');
+        ->and($failed[0]['detail'])->toContain('expected UNKNOWN_BUTTON');
 });
 
 it('fails an event wait on timeout', function () {
