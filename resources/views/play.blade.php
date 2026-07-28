@@ -32,7 +32,6 @@
     $ring = 'border-2 border-white/80';
     $lbl = 'text-white text-sm text-center font-semibold';
     $face = "w-14 h-14 rounded-full items-center justify-center $ring";
-    $padCell = "w-12 h-12 items-center justify-center $ring";
 
     // Transport rows (chunked into pairs — lazy-grid mislays out in EDGE).
     $transport = [
@@ -96,21 +95,10 @@
             @endforeach
         </native:row>
         <native:row class="w-full px-3 pb-5 items-end justify-between">
-            <native:column class="items-center">
-                @foreach ([[null, 'Up', null], ['Left', null, 'Right'], [null, 'Down', null]] as $row)
-                    <native:row>
-                        @foreach ($row as $b)
-                            @if ($b !== null && $has($b))
-                                <native:pressable class="{{ $padCell }} {{ $bg($b, 'bg-gray-700/45') }} {{ $b === 'Up' ? 'rounded-t-lg' : ($b === 'Down' ? 'rounded-b-lg' : ($b === 'Left' ? 'rounded-l-lg' : 'rounded-r-lg')) }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
-                                    <native:text class="{{ $lbl }}">{{ ['Up' => '▲', 'Down' => '▼', 'Left' => '◀', 'Right' => '▶'][$b] }}</native:text>
-                                </native:pressable>
-                            @else
-                                <native:column class="w-12 h-12" />
-                            @endif
-                        @endforeach
-                    </native:row>
-                @endforeach
-            </native:column>
+            {{-- One input area, not four buttons: the plugin's element resolves
+                 the finger's position natively, so diagonals work and sliding
+                 off the pad keeps walking. No PHP runs per press. --}}
+            <native:dpad surface="play" class="w-36 h-36" />
 
             <native:column class="items-center gap-2">
                 @foreach ($faceRows as $row)
