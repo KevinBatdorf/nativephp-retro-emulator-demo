@@ -87,13 +87,6 @@
         {{-- Bottom edge. Select/Start get their own centered row — three
              clusters in one row overflow a portrait phone's width. --}}
         <native:column class="w-full gap-2">
-        <native:row class="w-full justify-center gap-2">
-            @foreach ($groups['system'] as $b)
-                <native:pressable class="py-1 px-4 rounded-full {{ $ring }} {{ $bg($b, 'bg-gray-700/40') }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
-                    <native:text class="text-white/80 text-xs">{{ strtoupper($b) }}</native:text>
-                </native:pressable>
-            @endforeach
-        </native:row>
         <native:row class="w-full px-3 pb-5 items-end justify-between">
             {{-- One input area, not four buttons: the plugin's element resolves
                  the finger's position natively, so diagonals work and sliding
@@ -102,6 +95,15 @@
                 :threshold="$dpadThreshold / 100" :diagonal-ratio="$dpadDiagonalRatio / 100" />
 
             <native:column class="items-center gap-2">
+                {{-- Select/Start ride with the face cluster; centred on screen
+                     they sat on top of the game. --}}
+                <native:row class="gap-2 items-center">
+                    @foreach ($groups['system'] as $b)
+                        <native:pressable class="py-1 px-3 rounded-full {{ $ring }} {{ $bg($b, 'bg-gray-700/40') }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
+                            <native:text class="text-white/80 text-xs">{{ strtoupper($b) }}</native:text>
+                        </native:pressable>
+                    @endforeach
+                </native:row>
                 @foreach ($faceRows as $row)
                     <native:row class="gap-2 items-center">
                         @foreach ($row as $b)
