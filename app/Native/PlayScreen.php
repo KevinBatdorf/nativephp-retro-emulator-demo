@@ -57,9 +57,6 @@ class PlayScreen extends NativeComponent
     /** Game buttons currently held (touch) → true, for the on-screen highlight. */
     public array $held = [];
 
-    /** Buttons the core reports held, so a hardware pad lights the overlay too. */
-    public array $hardware = [];
-
     /** Transport action most recently fired, for a one-tick press flash. */
     public string $flash = '';
 
@@ -237,30 +234,12 @@ class PlayScreen extends NativeComponent
         $this->guard(fn () => $this->emu()->getDevice(1)->setButtons([$button => false]));
     }
 
-    /**
-     * Clear the one-tick transport flash, and mirror what the core holds so the
-     * overlay lights up for a hardware controller and not just for touch. Touch
-     * still updates $held immediately — this poll would otherwise make a finger
-     * press look sluggish.
-     */
+    /** Clear the one-tick transport action flash. */
     #[Poll(200)]
     public function inputTick(): void
     {
         if ($this->flash !== '') {
             $this->flash = '';
-        }
-
-        if ($this->status === 'loading') {
-            return;
-        }
-
-        $pressed = [];
-        $this->guard(function () use (&$pressed) {
-            $pressed = $this->emu()->getDevice(1)->pressed();
-        });
-
-        if ($pressed !== $this->hardware) {
-            $this->hardware = $pressed;
         }
     }
 

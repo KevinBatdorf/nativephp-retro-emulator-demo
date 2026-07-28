@@ -40,7 +40,9 @@ class SettingsStore
         // Touch-pad feel, as percentages so the overlay's sliders can carry
         // them; the dpad element takes fractions.
         'dpadThreshold' => 33,
-        'dpadDiagonalRatio' => 0,
+        // Narrows the diagonal so the outgoing direction drops sooner mid-turn.
+        // Raising it also delays the incoming one — same rule governs both.
+        'dpadDiagonalRatio' => 50,
     ];
 
     public const SYSTEM_DEFAULTS = [

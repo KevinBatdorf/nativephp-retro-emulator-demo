@@ -27,9 +27,7 @@
     // A held button (finger down) lights up bright white — the reactive-demo
     // highlight Kevin asked for. `ring` utilities don't render in EDGE, so the
     // highlight is a background swap (colored bg-* provably renders).
-    $bg = fn ($b, $rest) => (($held[$b] ?? false) || in_array($b, $hardware, true))
-        ? 'bg-white'
-        : $rest;
+    $bg = fn ($b, $rest) => ($held[$b] ?? false) ? 'bg-white' : $rest;
 
     $ring = 'border-2 border-white/80';
     $lbl = 'text-white text-sm text-center font-semibold';
