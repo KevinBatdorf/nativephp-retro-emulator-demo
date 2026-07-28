@@ -37,6 +37,10 @@ class SettingsStore
         'speed' => 1.0,
         'crt' => false,      // "Apply CRT filter" — one toggle, not a shader picker
         'rumble' => false,
+        // Touch-pad feel, as percentages so the overlay's sliders can carry
+        // them; the dpad element takes fractions.
+        'dpadThreshold' => 33,
+        'dpadDiagonalRatio' => 0,
     ];
 
     public const SYSTEM_DEFAULTS = [

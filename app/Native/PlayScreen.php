@@ -77,6 +77,10 @@ class PlayScreen extends NativeComponent
 
     // ── Settings (mirrored into the overlay; persisted via SettingsStore) ──
 
+    public int $dpadThreshold = 33;
+
+    public int $dpadDiagonalRatio = 0;
+
     public int $luminance = 100;
 
     public int $saturation = 100;
@@ -127,6 +131,8 @@ class PlayScreen extends NativeComponent
     private function hydrateSettings(): void
     {
         $g = SettingsStore::global();
+        $this->dpadThreshold = (int) $g['dpadThreshold'];
+        $this->dpadDiagonalRatio = (int) $g['dpadDiagonalRatio'];
         $this->luminance = (int) $g['luminance'];
         $this->saturation = (int) $g['saturation'];
         $this->gamma = (int) $g['gamma'];
@@ -310,6 +316,19 @@ class PlayScreen extends NativeComponent
     }
 
     // ── Settings (live picture/audio apply immediately) ─────
+
+    // The pad reads these as props; nothing to push to the core.
+    public function setDpadThreshold(float $v): void
+    {
+        $this->dpadThreshold = (int) round($v);
+        SettingsStore::setGlobal('dpadThreshold', $this->dpadThreshold);
+    }
+
+    public function setDpadDiagonalRatio(float $v): void
+    {
+        $this->dpadDiagonalRatio = (int) round($v);
+        SettingsStore::setGlobal('dpadDiagonalRatio', $this->dpadDiagonalRatio);
+    }
 
     public function setLuminance(float $v): void
     {

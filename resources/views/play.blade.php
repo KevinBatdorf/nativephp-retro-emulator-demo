@@ -98,7 +98,8 @@
             {{-- One input area, not four buttons: the plugin's element resolves
                  the finger's position natively, so diagonals work and sliding
                  off the pad keeps walking. No PHP runs per press. --}}
-            <native:dpad surface="play" class="w-36 h-36" />
+            <native:dpad surface="play" class="w-36 h-36"
+                :threshold="$dpadThreshold / 100" :diagonal-ratio="$dpadDiagonalRatio / 100" />
 
             <native:column class="items-center gap-2">
                 @foreach ($faceRows as $row)
@@ -158,6 +159,20 @@
                             <native:text class="text-gray-200 text-sm">crt-lottes — applies to every system</native:text>
                             <native:toggle label="" :value="$crt" @change="setCrt" />
                         </native:row>
+                    </native:column>
+
+                    {{-- Touch pad feel. Sliders carry percentages; the element
+                         takes fractions of the pad's half-extent. --}}
+                    <native:column class="w-full gap-1">
+                        <native:text class="text-white text-base font-semibold">Touch pad</native:text>
+                        <native:column class="w-full">
+                            <native:text class="text-gray-200 text-sm">Engage threshold — {{ $dpadThreshold }}%</native:text>
+                            <native:slider class="w-full" min="5" max="70" step="1" :value="$dpadThreshold" @change="setDpadThreshold" />
+                        </native:column>
+                        <native:column class="w-full">
+                            <native:text class="text-gray-200 text-sm">Diagonal bias — {{ $dpadDiagonalRatio }}%</native:text>
+                            <native:slider class="w-full" min="0" max="95" step="5" :value="$dpadDiagonalRatio" @change="setDpadDiagonalRatio" />
+                        </native:column>
                     </native:column>
 
                     {{-- Picture — applies live on the running surface. --}}
