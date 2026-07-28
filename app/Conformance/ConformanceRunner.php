@@ -446,6 +446,33 @@ class ConformanceRunner
                 ? null
                 : 'status is '.json_encode($r['status'] ?? null).', expected not_found'),
             $this->okStep('ClearCheats succeeds', 'Emulator.ClearCheats', $surface),
+            [
+                // Self-contained: nothing else in the run leaves a button held,
+                // so this presses one, reads it back, and releases it.
+                'label' => 'GetPressedButtons reports what is held',
+                'function' => 'Emulator.GetPressedButtons',
+                'run' => function () use ($surface) {
+                    $label = 'GetPressedButtons reports what is held';
+                    $fn = 'Emulator.GetPressedButtons';
+                    $port = [...$surface, 'port' => 1];
+
+                    $idle = $this->call($fn, $port);
+                    if ($idle === null || $this->isError($idle)) {
+                        return $this->fail($label, $fn, $this->describe($idle));
+                    }
+                    if (($idle['buttons'] ?? []) !== []) {
+                        return $this->fail($label, $fn, 'expected nothing held, got '.json_encode($idle['buttons']));
+                    }
+
+                    $this->call('Emulator.PressButton', [...$port, 'button' => 'Start']);
+                    $held = $this->call($fn, $port);
+                    $this->call('Emulator.ReleaseButton', [...$port, 'button' => 'Start']);
+
+                    return in_array('Start', $held['buttons'] ?? [], true)
+                        ? $this->pass($label, $fn, 'reported Start while held')
+                        : $this->fail($label, $fn, 'expected Start held, got '.json_encode($held['buttons'] ?? null));
+                },
+            ],
             $this->callStep('GetInputDevices lists hardware pads', 'Emulator.GetInputDevices', $surface,
                 // Empty is a valid answer — the on-screen overlay works either way.
                 fn (?array $r) => is_array($r['devices'] ?? null)

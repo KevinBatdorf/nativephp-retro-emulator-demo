@@ -27,11 +27,13 @@
     // A held button (finger down) lights up bright white — the reactive-demo
     // highlight Kevin asked for. `ring` utilities don't render in EDGE, so the
     // highlight is a background swap (colored bg-* provably renders).
-    $bg = fn ($b, $rest) => ($held[$b] ?? false) ? 'bg-white' : $rest;
+    $bg = fn ($b, $rest) => (($held[$b] ?? false) || in_array($b, $hardware, true))
+        ? 'bg-white'
+        : $rest;
 
     $ring = 'border-2 border-white/80';
     $lbl = 'text-white text-sm text-center font-semibold';
-    $face = "w-14 h-14 rounded-full items-center justify-center $ring";
+    $face = "w-12 h-12 rounded-full items-center justify-center $ring";
 
     // Transport rows (chunked into pairs — lazy-grid mislays out in EDGE).
     $transport = [
@@ -94,10 +96,10 @@
             <native:dpad surface="play" class="w-36 h-36"
                 :threshold="$dpadThreshold / 100" :diagonal-ratio="$dpadDiagonalRatio / 100" />
 
-            <native:column class="items-center gap-2">
+            <native:column class="items-center gap-1">
                 {{-- Select/Start ride with the face cluster; centred on screen
                      they sat on top of the game. --}}
-                <native:row class="gap-2 items-center">
+                <native:row class="gap-2 items-center pb-8">
                     @foreach ($groups['system'] as $b)
                         <native:pressable class="py-1 px-3 rounded-full {{ $ring }} {{ $bg($b, 'bg-gray-700/40') }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
                             <native:text class="text-white/80 text-xs">{{ strtoupper($b) }}</native:text>
@@ -105,14 +107,14 @@
                     @endforeach
                 </native:row>
                 @foreach ($faceRows as $row)
-                    <native:row class="gap-2 items-center">
+                    <native:row class="gap-1 items-center">
                         @foreach ($row as $b)
                             @if ($b !== null)
                                 <native:pressable class="{{ $face }} {{ $bg($b, $faceColor($b)) }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
                                     <native:text class="{{ $lbl }}">{{ $b }}</native:text>
                                 </native:pressable>
                             @else
-                                <native:column class="w-14 h-14" />
+                                <native:column class="w-12 h-12" />
                             @endif
                         @endforeach
                     </native:row>

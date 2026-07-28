@@ -50,6 +50,9 @@ class FakeNative
     /** Logical port => [lowercased emulated button => source button]. */
     private array $remap = [];
 
+    /** Logical port => [button name => true] for the buttons held. */
+    private array $pressed = [];
+
     /** Slot number => whole-memory snapshot, standing in for the slot files. */
     private array $slots = [];
 
@@ -74,6 +77,7 @@ class FakeNative
             'Emulator.GetStatus' => json_encode(['status' => $this->status]),
             'Emulator.GetRegion' => json_encode(['region' => 'NTSC']),
             'Emulator.GetInputDevices' => json_encode(['devices' => []]),
+            'Emulator.GetPressedButtons' => $this->getPressedButtons($payload),
             'Emulator.LoadSystem' => $this->loadSystem(),
             'Emulator.GetPorts' => $this->getPorts(),
             'Emulator.ConnectDevice' => $this->connectDevice($payload),
@@ -197,6 +201,20 @@ class FakeNative
         return null;
     }
 
+    private function getPressedButtons(array $payload): string
+    {
+        $port = $payload['port'] ?? 1;
+        $entry = $this->logicalPort($port);
+
+        return json_encode([
+            'port' => $port,
+            'buttons' => $entry === null ? [] : array_values(array_filter(
+                $entry['buttons'],
+                fn (string $button) => isset($this->pressed[$port][$button]),
+            )),
+        ]);
+    }
+
     private function loadSystem(): string
     {
         $this->systemLoaded = true;
@@ -307,6 +325,13 @@ class FakeNative
         }
         if ($entry === null || $this->bitForButtonName($entry['buttons'], $button) === null) {
             return $this->error('UNKNOWN_BUTTON', "Unknown button: {$button}");
+        }
+
+        $port = $payload['port'] ?? 1;
+        if ($status === 'pressed') {
+            $this->pressed[$port][$button] = true;
+        } else {
+            unset($this->pressed[$port][$button]);
         }
 
         return json_encode(['status' => $status, 'button' => $button]);
@@ -592,7 +617,7 @@ it('exercises every bridge function declared in the plugin manifest', function (
     $declared = array_column($manifest['bridge_functions'], 'name');
     $called = array_unique(array_column($native->calls, 'function'));
 
-    expect($declared)->toHaveCount(41)
+    expect($declared)->toHaveCount(42)
         ->and(array_values(array_diff($declared, $called)))->toBe([]);
 });
 
