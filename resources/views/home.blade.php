@@ -19,6 +19,10 @@
             @empty
                 <native:text class="text-yellow-400 py-4">No systems compiled into this build.</native:text>
             @endforelse
+
+            <native:pressable class="w-44 mt-4 py-4 rounded-2xl bg-gray-900 items-center justify-center border border-white/10" @navigate.none="'/dpads'">
+                <native:text class="text-white text-base font-semibold">D-pad demo</native:text>
+            </native:pressable>
         </native:column>
     </native:scroll-view>
 </native:column>

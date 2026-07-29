@@ -3,6 +3,7 @@
 namespace App\Native;
 
 use Illuminate\View\View;
+use Native\Mobile\Attributes\Poll;
 use Native\Mobile\Edge\NativeComponent;
 
 /**
@@ -13,6 +14,57 @@ use Native\Mobile\Edge\NativeComponent;
  */
 class DpadGalleryScreen extends NativeComponent
 {
+    /**
+     * Ball position and field size in dp — the field is the screen inset by the
+     * blade's padding, so these are approximate on purpose; the clamp only has
+     * to keep the ball on the visible panel.
+     */
+    private const FIELD_W = 700;
+
+    private const FIELD_H = 300;
+
+    private const BALL = 24;
+
+    private const STEP = 14;
+
+    public float $ballX = 320;
+
+    public float $ballY = 130;
+
+    /** Directions the pad currently reports held, e.g. "Up,Right". */
+    public string $heldDirections = '';
+
+    /**
+     * The pad's optional @change callback. It fires only when the held set
+     * changes, so the tick below is what actually animates the ball.
+     */
+    public function steer(string $directions = ''): void
+    {
+        $this->heldDirections = $directions;
+    }
+
+    /**
+     * Integrate the held direction into a position. The pad reports changes, not
+     * frames, so movement has to come from a tick — and this is PHP, so it moves
+     * at the poll rate rather than the pad's own per-frame resolution.
+     */
+    #[Poll(80)]
+    public function driftBall(): void
+    {
+        if ($this->heldDirections === '') {
+            return;
+        }
+
+        $held = explode(',', $this->heldDirections);
+        $x = $this->ballX + (in_array('Right', $held, true) ? self::STEP : 0)
+            - (in_array('Left', $held, true) ? self::STEP : 0);
+        $y = $this->ballY + (in_array('Down', $held, true) ? self::STEP : 0)
+            - (in_array('Up', $held, true) ? self::STEP : 0);
+
+        $this->ballX = max(0, min(self::FIELD_W - self::BALL, $x));
+        $this->ballY = max(0, min(self::FIELD_H - self::BALL, $y));
+    }
+
     /**
      * Each row is [heading, [[label, attrs], …]] where attrs are the element's
      * own props. Only the varied prop is set, so every other value shown is the
