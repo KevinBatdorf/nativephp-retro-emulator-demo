@@ -15,17 +15,19 @@ use Native\Mobile\Edge\NativeComponent;
 class DpadGalleryScreen extends NativeComponent
 {
     /**
-     * Ball position and field size in dp. The field is the whole screen, so
-     * these are approximate on purpose — the clamp only has to keep the ball
-     * on-screen, not match a pixel boundary.
+     * Ball position and field bounds in dp. PHP cannot measure the surface and
+     * nothing in the layout vocabulary positions a child by fraction, so the
+     * field is stated: a landscape handheld (the Thor is 833x468dp). Overshoot
+     * clips the ball out of sight rather than stopping it, so a smaller screen
+     * loses the far corner — the cost of a demo that reaches the edges here.
      */
-    private const FIELD_W = 800;
+    private const FIELD_W = 833;
 
-    private const FIELD_H = 440;
+    private const FIELD_H = 468;
 
     private const BALL = 24;
 
-    private const STEP = 14;
+    private const STEP = 34;
 
     public float $ballX = 380;
 
@@ -47,8 +49,12 @@ class DpadGalleryScreen extends NativeComponent
      * Integrate the held direction into a position. The pad reports changes, not
      * frames, so movement has to come from a tick — and this is PHP, so it moves
      * at the poll rate rather than the pad's own per-frame resolution.
+     *
+     * 80ms republished the tree fast enough to trip a Compose snapshot race in
+     * the host's MainActivity and crash-loop the app; 200 is calm and still
+     * reads as motion, with a longer step to keep the speed.
      */
-    #[Poll(80)]
+    #[Poll(200)]
     public function driftBall(): void
     {
         if ($this->heldDirections === '') {

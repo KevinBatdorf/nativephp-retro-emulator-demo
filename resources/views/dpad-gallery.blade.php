@@ -12,7 +12,7 @@
         <native:row class="w-full px-4 pt-8 pb-1 items-center justify-between">
             <native:button label="Back" @press="leave" />
             <native:text class="text-white text-lg font-semibold">D-pad demo</native:text>
-            <native:text class="text-gray-400 text-xs w-24 text-right">{{ $heldDirections ?: '—' }}</native:text>
+            <native:text class="text-gray-400 text-xs w-44 text-right">{{ $heldDirections ?: '—' }} · {{ (int) $ballX }},{{ (int) $ballY }}</native:text>
         </native:row>
 
         {{-- Each pad sets only the prop named under it, so the middle of every
