@@ -92,7 +92,7 @@
                  the finger's position natively, so diagonals work and sliding
                  off the pad keeps walking. No PHP runs per press. --}}
             <native:dpad surface="play" class="w-36 h-36"
-                :threshold="$dpadThreshold / 100" :diagonal-ratio="$dpadDiagonalRatio / 100" />
+                :threshold="$dpadThreshold" :diagonal-ratio="$dpadDiagonalRatio" />
 
             <native:column class="items-center gap-1">
                 {{-- Select/Start ride with the face cluster; centred on screen
