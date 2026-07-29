@@ -16,7 +16,7 @@ class NativeScreensTest extends TestCase
     {
         $this->withoutExceptionHandling();
 
-        foreach (['/home', '/dpads', '/systems', '/probe', '/errors'] as $uri) {
+        foreach (['/home', '/dpads', '/credits', '/systems', '/probe', '/errors'] as $uri) {
             $this->assertSame(200, $this->get($uri)->status(), "{$uri} did not render");
         }
     }
