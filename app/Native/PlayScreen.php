@@ -348,7 +348,9 @@ class PlayScreen extends NativeComponent
     {
         $this->gamma = (int) round($v);
         SettingsStore::setGlobal('gamma', $this->gamma);
-        $this->guard(fn () => $this->emu()->setVideo(gamma: (float) $this->gamma));
+        // The slider is a percentage; setVideo's gamma is a 1.0-2.0 float, unlike
+        // luminance/saturation which really are percentages.
+        $this->guard(fn () => $this->emu()->setVideo(gamma: $this->gamma / 100));
     }
 
     public function setOverscan(bool $on): void

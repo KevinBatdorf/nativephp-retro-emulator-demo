@@ -30,7 +30,7 @@ class SettingsStore
     public const GLOBAL_DEFAULTS = [
         'luminance' => 100,
         'saturation' => 100,
-        'gamma' => 100,      // percent; sent to setVideo as a float
+        'gamma' => 100,      // percent; the plugin takes 1.0-2.0, so /100 on the way out
         'overscan' => false,
         'volume' => 100,
         'balance' => 0,
@@ -111,7 +111,7 @@ class SettingsStore
         $shared = [
             'luminance' => (int) $g['luminance'],
             'saturation' => (int) $g['saturation'],
-            'gamma' => (float) $g['gamma'],
+            'gamma' => (float) $g['gamma'] / 100,
             'overscan' => (bool) $g['overscan'],
             'volume' => (int) $g['volume'],
             'balance' => (int) $g['balance'],
