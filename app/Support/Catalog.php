@@ -96,7 +96,6 @@ class Catalog
         'md' => ['B', 'A', 'Mode', 'Start', 'Up', 'Down', 'Left', 'Right', 'C', 'X', 'Y', 'Z'],
     ];
 
-
     public static function buttons(string $system): array
     {
         return self::BUTTONS[$system] ?? ['B', 'A', 'Select', 'Start', 'Up', 'Down', 'Left', 'Right'];

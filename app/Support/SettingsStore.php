@@ -4,8 +4,8 @@ namespace App\Support;
 
 use KevinBatdorf\RetroEmulator\Config\Config;
 use KevinBatdorf\RetroEmulator\Config\FcConfig;
-use KevinBatdorf\RetroEmulator\Config\GbConfig;
 use KevinBatdorf\RetroEmulator\Config\GbaConfig;
+use KevinBatdorf\RetroEmulator\Config\GbConfig;
 use KevinBatdorf\RetroEmulator\Config\MdConfig;
 use KevinBatdorf\RetroEmulator\Config\SfcConfig;
 use KevinBatdorf\RetroEmulator\Config\SystemConfig;
