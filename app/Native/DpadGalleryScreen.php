@@ -15,21 +15,21 @@ use Native\Mobile\Edge\NativeComponent;
 class DpadGalleryScreen extends NativeComponent
 {
     /**
-     * Ball position and field size in dp — the field is the screen inset by the
-     * blade's padding, so these are approximate on purpose; the clamp only has
-     * to keep the ball on the visible panel.
+     * Ball position and field size in dp. The field is the whole screen, so
+     * these are approximate on purpose — the clamp only has to keep the ball
+     * on-screen, not match a pixel boundary.
      */
-    private const FIELD_W = 700;
+    private const FIELD_W = 800;
 
-    private const FIELD_H = 300;
+    private const FIELD_H = 440;
 
     private const BALL = 24;
 
     private const STEP = 14;
 
-    public float $ballX = 320;
+    public float $ballX = 380;
 
-    public float $ballY = 130;
+    public float $ballY = 210;
 
     /** Directions the pad currently reports held, e.g. "Up,Right". */
     public string $heldDirections = '';
