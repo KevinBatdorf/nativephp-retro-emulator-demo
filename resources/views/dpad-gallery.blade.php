@@ -38,6 +38,7 @@
                                         :diagonal-ratio="$attrs['diagonalRatio'] ?? null"
                                         :thickness="$attrs['thickness'] ?? null"
                                         :radius="$attrs['radius'] ?? null"
+                                        :diagonals="$attrs['diagonals'] ?? null"
                                         :color="$attrs['color'] ?? null"
                                         :active-color="$attrs['activeColor'] ?? null" />
                                     <native:text class="text-gray-300 text-xs text-center">{{ $label }}</native:text>

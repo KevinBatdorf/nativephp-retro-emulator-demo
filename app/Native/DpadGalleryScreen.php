@@ -68,6 +68,12 @@ class DpadGalleryScreen extends NativeComponent
                 ['faint', ['color' => '#33FFFFFF', 'activeColor' => '#99FFFFFF']],
                 ['amber', ['color' => '#66F59E0B', 'activeColor' => '#FFFBBF24']],
             ]],
+            ['diagonals — false snaps to one axis, for a 4-way game', [
+                ['true (default)', []],
+                ['false', ['diagonals' => 'false']],
+                ['false + square', ['diagonals' => 'false', 'radius' => 0]],
+                ['ratio 80 (not a lock)', ['diagonalRatio' => 80]],
+            ]],
             ['combinations', [
                 ['thin + square', ['thickness' => 22, 'radius' => 0]],
                 ['fat + round', ['thickness' => 55, 'radius' => 50]],
