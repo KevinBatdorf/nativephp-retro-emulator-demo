@@ -64,6 +64,13 @@ class PlayScreen extends NativeComponent
 
     public bool $rewinding = false;
 
+    /**
+     * Whether rewind capture was armed for this boot. Capture has to be running
+     * before a rewind has anything to play back, so this can only change on a
+     * fresh boot — toggling it mid-game would arm an empty history.
+     */
+    public bool $rewindEnabled = false;
+
     /** The one overlay: transport + settings. Game pauses while it's open. */
     public bool $menuOpen = false;
 
@@ -139,6 +146,7 @@ class PlayScreen extends NativeComponent
         $this->overscan = (bool) $g['overscan'];
         $this->volume = (int) $g['volume'];
         $this->crt = (bool) $g['crt'];
+        $this->rewindEnabled = (bool) $g['rewind'];
 
         $s = SettingsStore::system($this->id);
         $this->toggles = [];
@@ -175,10 +183,13 @@ class PlayScreen extends NativeComponent
         $this->attempts++;
 
         try {
-            $this->emu()
+            $emu = $this->emu()
                 ->loadSystem($this->id, $this->config())
-                ->loadRom($this->rom)
-                ->configure(['rewind' => true, 'rewindBufferSeconds' => 10]);
+                ->loadRom($this->rom);
+
+            if ($this->rewindEnabled) {
+                $emu->configure(['rewind' => true, 'rewindBufferSeconds' => 10]);
+            }
 
             $this->booted = true;
             $this->error = '';
@@ -369,6 +380,13 @@ class PlayScreen extends NativeComponent
     {
         $this->crt = $on;
         SettingsStore::setGlobal('crt', $on);
+        $this->rebootNeeded = true;
+    }
+
+    public function setRewind(bool $on): void
+    {
+        $this->rewindEnabled = $on;
+        SettingsStore::setGlobal('rewind', $on);
         $this->rebootNeeded = true;
     }
 

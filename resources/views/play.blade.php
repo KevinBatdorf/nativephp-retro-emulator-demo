@@ -39,7 +39,7 @@
         ['label' => 'Save state', 'press' => 'saveState'],
         ['label' => 'Load state', 'press' => 'loadState'],
         ['label' => 'Undo load', 'press' => 'undo'],
-        ['label' => $rewinding ? 'Rewind ✓' : 'Rewind', 'press' => 'rewind', 'active' => $rewinding],
+        ['label' => $rewindEnabled ? ($rewinding ? 'Rewind ✓' : 'Rewind') : 'Rewind (off)', 'press' => 'rewind', 'active' => $rewinding],
         ['label' => $fastForward ? 'Fast-fwd ✓' : 'Fast-fwd', 'press' => 'toggleFastForward', 'active' => $fastForward],
         ['label' => 'Screenshot', 'press' => 'screenshot'],
     ];
@@ -160,6 +160,16 @@
                         <native:row class="w-full items-center justify-between">
                             <native:text class="text-gray-200 text-sm">crt-lottes — applies to every system</native:text>
                             <native:toggle label="" :value="$crt" @change="setCrt" />
+                        </native:row>
+                    </native:column>
+
+                    {{-- Rewind costs CPU continuously while a game runs, so it
+                         ships off and says so. --}}
+                    <native:column class="w-full gap-2">
+                        <native:text class="text-white text-base font-semibold">Rewind</native:text>
+                        <native:row class="w-full items-center justify-between">
+                            <native:text class="text-gray-200 text-sm">Capture history — costs CPU while playing</native:text>
+                            <native:toggle label="" :value="$rewindEnabled" @change="setRewind" />
                         </native:row>
                     </native:column>
 

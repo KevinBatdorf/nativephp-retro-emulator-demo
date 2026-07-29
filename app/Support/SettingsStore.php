@@ -37,6 +37,9 @@ class SettingsStore
         'speed' => 1.0,
         'crt' => false,      // "Apply CRT filter" — one toggle, not a shader picker
         'rumble' => false,
+        // Capture serializes a full save state every 10 frames for as long as a
+        // game runs, so it costs CPU even when nobody rewinds.
+        'rewind' => false,
         // Touch-pad feel, as percentages so the overlay's sliders can carry
         // them; the dpad element takes fractions.
         'dpadThreshold' => 33,

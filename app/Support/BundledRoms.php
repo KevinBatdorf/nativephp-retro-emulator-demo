@@ -13,10 +13,10 @@ class BundledRoms
     public const SYSTEMS = [
         'fc' => 'super-tilt-bro.nes',        // WTFPL
         'sfc' => 'space-rescue-squad.sfc',   // zlib
-        'gb' => 'tobu-tobu-girl.gb',         // MIT + CC-BY
-        'gbc' => 'tobu-tobu-girl-dx.gbc',    // MIT + CC-BY (color)
+        'gb' => 'rex-runner.gb',             // MIT
+        'gbc' => 'ucity.gbc',                // GPL-3.0-or-later — see license.txt
         'md' => 'miniplanets.bin',           // zlib
-        'gba' => 'butano-fighter.gba',       // zlib
+        'gba' => 'blind-jump.gba',           // MIT
     ];
 
     public static function path(string $filename): ?string
