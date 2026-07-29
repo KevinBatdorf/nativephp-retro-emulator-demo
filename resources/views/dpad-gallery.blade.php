@@ -6,7 +6,8 @@
      them. PHP only hears about direction changes, never frames. --}}
 <native:stack class="flex-1 w-full h-full bg-gray-950">
     <native:column class="w-full h-full">
-        <native:column class="w-6 h-6 rounded-full bg-red-500 ml-6 mt-6"
+        {{-- mt-24 clears the header, so translate 0 still shows the ball. --}}
+        <native:column class="w-8 h-8 rounded-full bg-red-500 ml-6 mt-24"
             :translate-x="$ballX" :translate-y="$ballY" />
     </native:column>
 
@@ -30,7 +31,9 @@
                                     <native:dpad
                                         class="w-20 h-20"
                                         @change="steer"
-                                        :pan-x="$ballX" :pan-y="$ballY" pan-min="0" pan-max="780"
+                                        :pan-x="$ballX" :pan-y="$ballY"
+                                        pan-x-min="0" pan-x-max="760"
+                                        pan-y-min="0" pan-y-max="320"
                                         :threshold="$attrs['threshold'] ?? null"
                                         :diagonal-ratio="$attrs['diagonalRatio'] ?? null"
                                         :thickness="$attrs['thickness'] ?? null"

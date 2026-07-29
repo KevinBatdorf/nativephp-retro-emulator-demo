@@ -29,8 +29,9 @@ class DpadGalleryScreen extends NativeComponent
 
     public function mount(): void
     {
-        $this->ballX = SharedValue::make(0);
-        $this->ballY = SharedValue::make(0);
+        // Start it in open space; at 0,0 it sits under the Back button.
+        $this->ballX = SharedValue::make(330);
+        $this->ballY = SharedValue::make(110);
     }
 
     /** Fires only when the held set changes — the readout, not the animation. */
