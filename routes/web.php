@@ -3,6 +3,7 @@
 use App\Native\AudioTestScreen;
 use App\Native\ConformanceScreen;
 use App\Native\DeclarativeScreen;
+use App\Native\DpadGalleryScreen;
 use App\Native\ErrorsScreen;
 use App\Native\HomeScreen;
 use App\Native\PlayScreen;
@@ -26,3 +27,4 @@ Route::native('/declarative', DeclarativeScreen::class);
 Route::native('/errors', ErrorsScreen::class);
 Route::native('/audio', AudioTestScreen::class);
 Route::native('/shader', ShaderProbeScreen::class);
+Route::native('/dpads', DpadGalleryScreen::class);
