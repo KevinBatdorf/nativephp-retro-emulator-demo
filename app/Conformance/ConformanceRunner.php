@@ -314,6 +314,20 @@ class ConformanceRunner
             $this->okStep('SetVideo merges options', 'Emulator.SetVideo', [
                 ...$surface, 'options' => ['luminance' => 90, 'saturation' => 100],
             ]),
+            // The picture knobs are whole percentages. A caller passing ares'
+            // 1.0-2.0 gamma exponent instead gets told, rather than a black screen.
+            $this->errorStep('SetVideo rejects a gamma passed as a multiplier', 'Emulator.SetVideo', [
+                ...$surface, 'options' => ['gamma' => 1],
+            ], code: 'INVALID_PARAMETERS'),
+            $this->okStep('SetVideo accepts gamma as a percentage', 'Emulator.SetVideo', [
+                ...$surface, 'options' => ['gamma' => 150],
+            ]),
+            $this->okStep('SetVideo restores neutral gamma', 'Emulator.SetVideo', [
+                ...$surface, 'options' => ['gamma' => 100],
+            ]),
+            $this->errorStep('SetAudio rejects an out-of-range volume', 'Emulator.SetAudio', [
+                ...$surface, 'options' => ['volume' => 400],
+            ], code: 'INVALID_PARAMETERS'),
             $this->okStep('Configure speed 2.0', 'Emulator.Configure', [...$surface, 'options' => ['speed' => 2.0]]),
             $this->okStep('Configure speed back to 1.0', 'Emulator.Configure', [...$surface, 'options' => ['speed' => 1.0]]),
             $this->okStep('Configure runAhead 1 enables', 'Emulator.Configure', [

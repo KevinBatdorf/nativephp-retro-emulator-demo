@@ -102,6 +102,8 @@ class FakeNative
                     range(0, ($payload['length'] ?? 1) - 1),
                 ),
             ]),
+            'Emulator.SetVideo' => $this->setVideo($payload),
+            'Emulator.SetAudio' => $this->setAudio($payload),
             'Emulator.WriteMemory' => $this->write($payload),
             'Emulator.Configure' => $this->configure($payload),
             'Emulator.ToggleRewind' => $this->toggleRewind(),
@@ -434,6 +436,41 @@ class FakeNative
         $this->undoLoad = null;
 
         return json_encode(['status' => 'undone']);
+    }
+
+    /**
+     * The picture/audio knobs are whole percentages; out-of-range values are
+     * refused rather than clamped (see the bridges' percent() helpers).
+     */
+    private function percentError(array $options, string $key, int $min, int $max): ?string
+    {
+        if (! is_numeric($options[$key] ?? null)) {
+            return null;
+        }
+        $value = (float) $options[$key];
+
+        return $value < $min || $value > $max
+            ? $this->error('INVALID_PARAMETERS', "{$key} is a whole percentage ({$min}-{$max}, 100 = unchanged) — got {$value}")
+            : null;
+    }
+
+    private function setVideo(array $payload): string
+    {
+        $options = $payload['options'] ?? [];
+
+        return $this->percentError($options, 'luminance', 0, 100)
+            ?? $this->percentError($options, 'saturation', 0, 100)
+            ?? $this->percentError($options, 'gamma', 50, 200)
+            ?? '{}';
+    }
+
+    private function setAudio(array $payload): string
+    {
+        $options = $payload['options'] ?? [];
+
+        return $this->percentError($options, 'volume', 0, 100)
+            ?? $this->percentError($options, 'balance', -100, 100)
+            ?? '{}';
     }
 
     private function setShader(array $payload): string
