@@ -3,8 +3,8 @@
 namespace App\Native;
 
 use Illuminate\View\View;
-use Native\Mobile\Attributes\Poll;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Edge\SharedValue;
 
 /**
  * Side-by-side <native:dpad> variations, for judging the look by eye.
@@ -15,60 +15,28 @@ use Native\Mobile\Edge\NativeComponent;
 class DpadGalleryScreen extends NativeComponent
 {
     /**
-     * Ball position and field bounds in dp. PHP cannot measure the surface and
-     * nothing in the layout vocabulary positions a child by fraction, so the
-     * field is stated: a landscape handheld (the Thor is 833x468dp). Overshoot
-     * clips the ball out of sight rather than stopping it, so a smaller screen
-     * loses the far corner — the cost of a demo that reaches the edges here.
+     * The pads integrate these natively and the ball's translate binds to them.
+     * Animating from a PHP tick instead is not just chunky: republishing the
+     * tree every 80ms trips a Compose snapshot race in the host and crash-loops
+     * the app.
      */
-    private const FIELD_W = 833;
+    public SharedValue $ballX;
 
-    private const FIELD_H = 468;
+    public SharedValue $ballY;
 
-    private const BALL = 24;
-
-    private const STEP = 34;
-
-    public float $ballX = 380;
-
-    public float $ballY = 210;
-
-    /** Directions the pad currently reports held, e.g. "Up,Right". */
+    /** Directions the steering pads report held, e.g. "Up,Right". */
     public string $heldDirections = '';
 
-    /**
-     * The pad's optional @change callback. It fires only when the held set
-     * changes, so the tick below is what actually animates the ball.
-     */
+    public function mount(): void
+    {
+        $this->ballX = SharedValue::make(0);
+        $this->ballY = SharedValue::make(0);
+    }
+
+    /** Fires only when the held set changes — the readout, not the animation. */
     public function steer(string $directions = ''): void
     {
         $this->heldDirections = $directions;
-    }
-
-    /**
-     * Integrate the held direction into a position. The pad reports changes, not
-     * frames, so movement has to come from a tick — and this is PHP, so it moves
-     * at the poll rate rather than the pad's own per-frame resolution.
-     *
-     * 80ms republished the tree fast enough to trip a Compose snapshot race in
-     * the host's MainActivity and crash-loop the app; 200 is calm and still
-     * reads as motion, with a longer step to keep the speed.
-     */
-    #[Poll(200)]
-    public function driftBall(): void
-    {
-        if ($this->heldDirections === '') {
-            return;
-        }
-
-        $held = explode(',', $this->heldDirections);
-        $x = $this->ballX + (in_array('Right', $held, true) ? self::STEP : 0)
-            - (in_array('Left', $held, true) ? self::STEP : 0);
-        $y = $this->ballY + (in_array('Down', $held, true) ? self::STEP : 0)
-            - (in_array('Up', $held, true) ? self::STEP : 0);
-
-        $this->ballX = max(0, min(self::FIELD_W - self::BALL, $x));
-        $this->ballY = max(0, min(self::FIELD_H - self::BALL, $y));
     }
 
     /**
@@ -76,7 +44,7 @@ class DpadGalleryScreen extends NativeComponent
      * own props. Only the varied prop is set, so every other value shown is the
      * element's default.
      *
-     * @return array<int, array{0: string, 1: array<int, array{0: string, 1: array<string, mixed>}}>
+     * @return array<int, array{0: string, 1: array<int, array{0: string, 1: array<string, mixed>}>}>
      */
     public function variations(): array
     {
