@@ -44,6 +44,9 @@ class FakeNative
 
     private bool $rewinding = false;
 
+    /** What the last LoadSystem staged — sfc reads it back as `accuracy`. */
+    private bool $pixelAccuracy = false;
+
     /** Physical port => ares peripheral name. */
     private array $connected = [];
 
@@ -74,11 +77,11 @@ class FakeNative
             'Emulator.GetSystems' => json_encode(['systems' => [
                 ['id' => 'sfc', 'name' => 'SNES / Super Famicom', 'supported' => true, 'stable' => true, 'biosRequired' => false],
             ]]),
-            'Emulator.GetStatus' => json_encode(['status' => $this->status]),
+            'Emulator.GetStatus' => $this->getStatus(),
             'Emulator.GetRegion' => json_encode(['region' => 'NTSC']),
             'Emulator.GetInputDevices' => json_encode(['devices' => []]),
             'Emulator.GetPressedButtons' => $this->getPressedButtons($payload),
-            'Emulator.LoadSystem' => $this->loadSystem(),
+            'Emulator.LoadSystem' => $this->loadSystem($payload),
             'Emulator.GetPorts' => $this->getPorts(),
             'Emulator.ConnectDevice' => $this->connectDevice($payload),
             'Emulator.SetInputMapping' => $this->setInputMapping($payload),
@@ -217,11 +220,26 @@ class FakeNative
         ]);
     }
 
-    private function loadSystem(): string
+    private function loadSystem(array $payload): string
     {
         $this->systemLoaded = true;
+        // Boot-only, like the real bridge: LoadSystem is the only writer.
+        $this->pixelAccuracy = (bool) ($payload['config']['pixelAccuracy'] ?? false);
 
         return json_encode(['status' => 'loaded']);
+    }
+
+    private function getStatus(): string
+    {
+        $payload = ['status' => $this->status];
+
+        // The real readback needs a bound core: present only once a ROM
+        // booted, reporting what the boot bound (sfc exposes the choice).
+        if ($this->systemLoaded && in_array($this->status, ['running', 'paused'], true)) {
+            $payload['accuracy'] = $this->pixelAccuracy ? 'accurate' : 'performance';
+        }
+
+        return json_encode($payload);
     }
 
     private function getPorts(): string
@@ -536,6 +554,10 @@ class FakeNative
     private function configure(array $payload): string
     {
         $options = $payload['options'] ?? [];
+
+        if (array_key_exists('pixelAccuracy', $options)) {
+            return $this->error('BOOT_ONLY_OPTION', 'pixelAccuracy can only be set in the LoadSystem config');
+        }
 
         if (! in_array($options['runAhead'] ?? 0, [0, 1], true)) {
             return $this->error('INVALID_PARAMETERS', 'runAhead must be 0 or 1');

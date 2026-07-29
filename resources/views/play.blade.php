@@ -173,6 +173,14 @@
                         </native:row>
                     </native:column>
 
+                    <native:column class="w-full gap-2">
+                        <native:text class="text-white text-base font-semibold">Accurate rendering</native:text>
+                        <native:row class="w-full items-center justify-between">
+                            <native:text class="text-gray-200 text-sm">Dot/cycle renderer (SNES, GBA) — costs CPU</native:text>
+                            <native:toggle label="" :value="$accurate" @change="setAccurate" />
+                        </native:row>
+                    </native:column>
+
                     {{-- Touch pad feel. Sliders carry percentages; the element
                          takes fractions of the pad's half-extent. --}}
                     <native:column class="w-full gap-1">

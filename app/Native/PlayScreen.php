@@ -71,6 +71,9 @@ class PlayScreen extends NativeComponent
      */
     public bool $rewindEnabled = false;
 
+    /** Boot-only renderer preset — SNES/GBA only; a change needs a reboot. */
+    public bool $accurate = false;
+
     /** The one overlay: transport + settings. Game pauses while it's open. */
     public bool $menuOpen = false;
 
@@ -147,6 +150,7 @@ class PlayScreen extends NativeComponent
         $this->volume = (int) $g['volume'];
         $this->crt = (bool) $g['crt'];
         $this->rewindEnabled = (bool) $g['rewind'];
+        $this->accurate = (bool) $g['accurate'];
 
         $s = SettingsStore::system($this->id);
         $this->toggles = [];
@@ -387,6 +391,13 @@ class PlayScreen extends NativeComponent
     {
         $this->rewindEnabled = $on;
         SettingsStore::setGlobal('rewind', $on);
+        $this->rebootNeeded = true;
+    }
+
+    public function setAccurate(bool $on): void
+    {
+        $this->accurate = $on;
+        SettingsStore::setGlobal('accurate', $on);
         $this->rebootNeeded = true;
     }
 

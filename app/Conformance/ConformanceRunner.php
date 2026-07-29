@@ -348,6 +348,15 @@ class ConformanceRunner
             $this->okStep('Configure rewind disables capture', 'Emulator.Configure', [
                 ...$surface, 'options' => ['rewind' => false],
             ]),
+            // Accuracy is boot-only (it picks the renderer at load); status
+            // reads back which renderer the boot actually bound.
+            $this->errorStep('Configure pixelAccuracy rejected post-boot', 'Emulator.Configure', [
+                ...$surface, 'options' => ['pixelAccuracy' => true],
+            ], code: 'BOOT_ONLY_OPTION'),
+            $this->callStep('Status reports the performance renderer', 'Emulator.GetStatus', $surface,
+                fn (?array $r) => ($r['accuracy'] ?? null) === 'performance'
+                    ? null
+                    : 'expected accuracy "performance", got '.json_encode($r)),
             $this->okStep('SetSystemOptions merges a per-system toggle', 'Emulator.SetSystemOptions', [
                 ...$surface, 'options' => ['deepBlackBoost' => true],
             ]),
@@ -510,6 +519,27 @@ class ConformanceRunner
             $this->okStep('SetButtons clears state', 'Emulator.SetButtons', [
                 ...$surface, 'port' => 1, 'state' => ['Up' => false],
             ]),
+            // Boot-only means a reboot honors it: boot the accurate PPU (its
+            // first-ever execution in this plugin), read the binding back from
+            // the core, then reboot to the performance default.
+            $this->okStep('LoadSystem accepts pixelAccuracy', 'Emulator.LoadSystem', [
+                ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false, 'pixelAccuracy' => true],
+            ]),
+            $this->okStep('LoadRom reboots under the accurate PPU', 'Emulator.LoadRom', [...$surface, 'path' => $romPath]),
+            $this->waitStep('EmulatorStarted fires under the accurate PPU', 'Emulator.LoadRom', EmulatorStarted::class, timeout: 15),
+            $this->callStep('Status reports the accurate renderer', 'Emulator.GetStatus', $surface,
+                fn (?array $r) => ($r['accuracy'] ?? null) === 'accurate'
+                    ? null
+                    : 'expected accuracy "accurate", got '.json_encode($r)),
+            $this->okStep('LoadSystem restores the performance default', 'Emulator.LoadSystem', [
+                ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false],
+            ]),
+            $this->okStep('LoadRom reboots under the performance PPU', 'Emulator.LoadRom', [...$surface, 'path' => $romPath]),
+            $this->waitStep('EmulatorStarted fires after the reboot back', 'Emulator.LoadRom', EmulatorStarted::class, timeout: 15),
+            $this->callStep('Status reports performance after the reboot back', 'Emulator.GetStatus', $surface,
+                fn (?array $r) => ($r['accuracy'] ?? null) === 'performance'
+                    ? null
+                    : 'expected accuracy "performance", got '.json_encode($r)),
             $this->okStep('Stop tears down', 'Emulator.Stop', $surface),
             $this->waitStep('EmulatorStopped fires', 'Emulator.Stop', EmulatorStopped::class, timeout: 5),
             $this->statusStep('Status is stopped after stop', 'stopped'),

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use KevinBatdorf\RetroEmulator\Accuracy;
 use KevinBatdorf\RetroEmulator\Config\Config;
 use KevinBatdorf\RetroEmulator\Config\FcConfig;
 use KevinBatdorf\RetroEmulator\Config\GbaConfig;
@@ -40,6 +41,9 @@ class SettingsStore
         // Capture serializes a full save state every 10 frames for as long as a
         // game runs, so it costs CPU even when nobody rewinds.
         'rewind' => false,
+        // Boot-only renderer preset: SNES/GBA gain dot/cycle accuracy at real
+        // CPU cost; the other systems have one renderer and ignore it.
+        'accurate' => false,
         // Touch-pad feel, as percentages so the overlay's sliders can carry
         // them; the dpad element takes fractions.
         'dpadThreshold' => 33,
@@ -121,6 +125,7 @@ class SettingsStore
             'speed' => (float) $g['speed'],
             'rumble' => (bool) $g['rumble'],
             'shader' => self::resolveShader($g, $s),
+            'accuracy' => $g['accurate'] ? Accuracy::Accurate : Accuracy::Performance,
         ];
 
         $region = self::resolveRegion($id, $s);
