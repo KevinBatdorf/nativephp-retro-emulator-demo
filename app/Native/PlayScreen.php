@@ -21,7 +21,7 @@ use Native\Mobile\Edge\Transition;
 use Native\Mobile\Facades\Dialog;
 
 /**
- * Screen 3 — Play. Full-height emulator surface with a translucent control
+ * Play. Full-height emulator surface with a translucent control
  * overlay on top (stack). The ROM boots imperatively, RETRIED on each #[Poll]
  * tick until the native surface is actually attached — booting on a single
  * fixed tick races the surface lifecycle (worse under immersive/fullscreen) and

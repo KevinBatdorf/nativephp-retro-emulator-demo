@@ -8,7 +8,7 @@ use KevinBatdorf\RetroEmulator\Facades\Emulator;
 use Native\Mobile\Edge\NativeComponent;
 
 /**
- * Screen 1 — Home. A grid of the consoles this build actually compiled
+ * Home. A grid of the consoles this build actually compiled
  * (Emulator::systems() where supported), tapping through to each system's ROM
  * picker. Bottom bar carries global Settings.
  */

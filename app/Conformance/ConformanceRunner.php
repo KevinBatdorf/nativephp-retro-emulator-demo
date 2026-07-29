@@ -186,7 +186,7 @@ class ConformanceRunner
             $this->okStep('LoadSystem initialises sfc', 'Emulator.LoadSystem', [
                 ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false],
             ]),
-            // Controllers are explicit (step 1.5): register a gamepad so GetPorts
+            // Controllers are explicit: register a gamepad so GetPorts
             // reports its buttons. The registration persists across the boot below.
             $this->okStep('ConnectDevice a gamepad on port 1', 'Emulator.ConnectDevice', [
                 ...$surface, 'port' => 1, 'device' => 'Gamepad',
