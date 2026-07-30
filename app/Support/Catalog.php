@@ -139,6 +139,22 @@ class Catalog
         return $groups;
     }
 
+    /**
+     * Engines selectable per system: the plugin's bundled set plus the BYO
+     * libretro cores this app ships in resources/emulator-cores.
+     */
+    public static function backends(string $system): array
+    {
+        return match ($system) {
+            'sfc' => ['ares', 'snes9x'],
+            'fc' => ['ares', 'fceumm'],
+            'gb', 'gbc' => ['sameboy', 'ares'],
+            'gba' => ['mgba', 'ares'],
+            'md' => ['ares'],
+            default => [],
+        };
+    }
+
     /** Per-system boolean toggles beyond the shared config, keyed by config field. */
     public static function toggles(string $system): array
     {

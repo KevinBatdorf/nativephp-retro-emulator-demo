@@ -31,3 +31,6 @@ Thumbs.db
 /storage/logs/native-run*.log
 /.shim
 /release-staging
+
+# BYO libretro cores (downloaded, never committed)
+resources/emulator-cores/

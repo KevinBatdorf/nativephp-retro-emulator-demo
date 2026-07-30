@@ -74,6 +74,9 @@ class PlayScreen extends NativeComponent
     /** Boot-only renderer preset — SNES/GBA only; a change needs a reboot. */
     public bool $accurate = false;
 
+    /** Engine serving this system: '' = default, else a name or BYO core. */
+    public string $backend = '';
+
     /** The one overlay: transport + settings. Game pauses while it's open. */
     public bool $menuOpen = false;
 
@@ -153,6 +156,7 @@ class PlayScreen extends NativeComponent
         $this->accurate = (bool) $g['accurate'];
 
         $s = SettingsStore::system($this->id);
+        $this->backend = (string) ($s['backend'] ?? '');
         $this->toggles = [];
         foreach (Catalog::toggles($this->id) as $field => $label) {
             $this->toggles[$field] = isset($s[$field])
@@ -398,6 +402,15 @@ class PlayScreen extends NativeComponent
     {
         $this->accurate = $on;
         SettingsStore::setGlobal('accurate', $on);
+        $this->rebootNeeded = true;
+    }
+
+    public function cycleBackend(): void
+    {
+        $options = ['', ...Catalog::backends($this->id)];
+        $at = array_search($this->backend, $options, true);
+        $this->backend = $options[($at === false ? 1 : $at + 1) % count($options)];
+        SettingsStore::setSystem($this->id, 'backend', $this->backend);
         $this->rebootNeeded = true;
     }
 

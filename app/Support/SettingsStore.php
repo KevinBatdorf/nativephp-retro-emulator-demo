@@ -56,6 +56,7 @@ class SettingsStore
         'region' => '',      // '' = auto (resolved from the ROM)
         'device' => 'Gamepad',
         'crt' => 'inherit',  // inherit | on | off
+        'backend' => '',     // '' = default engine; a bundled engine or BYO core name
         // per-system toggles (deepBlackBoost, colorEmulation, …) merge in as needed
     ];
 
@@ -126,6 +127,7 @@ class SettingsStore
             'rumble' => (bool) $g['rumble'],
             'shader' => self::resolveShader($g, $s),
             'accuracy' => $g['accurate'] ? Accuracy::Accurate : Accuracy::Performance,
+            'backend' => ($s['backend'] ?? '') ?: null,
         ];
 
         $region = self::resolveRegion($id, $s);
