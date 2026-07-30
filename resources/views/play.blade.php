@@ -84,10 +84,8 @@
             @endif
         </native:column>
 
-        {{-- Bottom edge. Select/Start get their own centered row — three
-             clusters in one row overflow a portrait phone's width. --}}
         <native:column class="w-full gap-2">
-        <native:row class="w-full px-3 pb-5 items-end justify-between">
+        <native:row class="w-full px-3 items-end justify-between">
             {{-- One input area, not four buttons: the plugin's element resolves
                  the finger's position natively, so diagonals work and sliding
                  off the pad keeps walking. No PHP runs per press. --}}
@@ -95,15 +93,6 @@
                 :threshold="$dpadThreshold" :diagonal-ratio="$dpadDiagonalRatio" />
 
             <native:column class="items-center gap-1">
-                {{-- Select/Start ride with the face cluster; centred on screen
-                     they sat on top of the game. --}}
-                <native:row class="gap-2 items-center pb-8">
-                    @foreach ($groups['system'] as $b)
-                        <native:pressable class="py-1 px-3 rounded-full {{ $ring }} {{ $bg($b, 'bg-gray-700/40') }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
-                            <native:text class="text-white/80 text-xs">{{ strtoupper($b) }}</native:text>
-                        </native:pressable>
-                    @endforeach
-                </native:row>
                 @foreach ($faceRows as $row)
                     <native:row class="gap-1 items-center">
                         @foreach ($row as $b)
@@ -119,6 +108,18 @@
                 @endforeach
             </native:column>
         </native:row>
+
+        {{-- Select/Start on the bottom edge, under the game's letterbox —
+             a full-width centered row also can't overflow portrait. --}}
+        @if (count($groups['system']))
+            <native:row class="w-full pb-4 items-center justify-center gap-3">
+                @foreach ($groups['system'] as $b)
+                    <native:pressable class="py-1 px-3 rounded-full {{ $ring }} {{ $bg($b, 'bg-gray-700/40') }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
+                        <native:text class="text-white/80 text-xs">{{ strtoupper($b) }}</native:text>
+                    </native:pressable>
+                @endforeach
+            </native:row>
+        @endif
         </native:column>
     </native:column>
 
