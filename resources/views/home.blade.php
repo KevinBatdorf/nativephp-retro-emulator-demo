@@ -23,10 +23,6 @@
             <native:pressable class="w-44 mt-4 py-4 rounded-2xl bg-gray-900 items-center justify-center border border-white/10" @navigate.none="'/dpads'">
                 <native:text class="text-white text-base font-semibold">D-pad demo</native:text>
             </native:pressable>
-
-            <native:pressable class="w-44 py-3 rounded-2xl items-center justify-center" @navigate.none="'/credits'">
-                <native:text class="text-gray-400 text-sm">Credits &amp; licenses</native:text>
-            </native:pressable>
         </native:column>
     </native:scroll-view>
 </native:column>

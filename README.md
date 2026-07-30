@@ -32,9 +32,20 @@ results land in `storage/app/conformance-results.json`:
 adb exec-out run-as <app-id> cat app_storage/persisted_data/storage/app/conformance-results.json
 ```
 
-Everything bundled is freely-licensed homebrew, credited in-app (home →
-Credits & licenses) and in `resources/roms/license.txt` — no copyrighted game
-content anywhere. uCity's GPL source offer lives in both places.
+Everything bundled is freely-licensed homebrew — no copyrighted game content
+anywhere. Credits (attribution travels with this repo and its releases; full
+texts in [`resources/roms/license.txt`](resources/roms/license.txt)):
+
+- **Super Tilt Bro.** (NES) — Sylvain Gadrat, WTFPL
+- **Space Rescue Squad** (SNES) — Marcus Rowe / KungFuFurby, zlib
+- **Rex Runner GB** (Game Boy) — The Void, MIT
+- **uCity v1.3** (GBC) — Antonio Niño Díaz, GPLv3+ (media CC BY-SA 4.0).
+  Unmodified release binary; complete corresponding source is the `v1.3` tag
+  at <https://codeberg.org/SkyLyrac/ucity> (mirror: github.com/AntonioND/ucity)
+- **Miniplanets** (Genesis) — Javier Degirolmo (Sik), zlib
+- **Blind Jump** (GBA) — Evan Bowman, MIT
+- Alternates in `resources/roms/`: Tobu Tobu Girl / Deluxe — Tangram Games,
+  MIT + CC-BY-4.0; Butano Fighter — Gustavo Valiente, zlib
 
 ## Build it yourself
 
@@ -74,7 +85,6 @@ rebuilding.
 | `/home` | console grid from `Emulator::systems()`, one bundled game each |
 | `/play/{id}` | the whole runtime surface: touch controls, settings overlay, states, rewind, accuracy toggle |
 | `/dpads` | `<native:dpad>` styling knobs + `SharedValue` pan integration |
-| `/credits` | bundled-game attribution (a license obligation, not decoration) |
 | `/conformance` | the 96-step suite against the live native layer |
 | `/systems`, `/probe`, `/errors`, `/audio`, `/shader`, `/declarative` | dev probes |
 

@@ -2,7 +2,6 @@
 
 use App\Native\AudioTestScreen;
 use App\Native\ConformanceScreen;
-use App\Native\CreditsScreen;
 use App\Native\DeclarativeScreen;
 use App\Native\DpadGalleryScreen;
 use App\Native\ErrorsScreen;
@@ -19,7 +18,6 @@ Route::get('/', fn () => redirect('/home'));
 // ── Demo app (home + play; settings is an in-place overlay in PlayScreen) ──
 Route::native('/home', HomeScreen::class);
 Route::native('/play/{id}', PlayScreen::class);
-Route::native('/credits', CreditsScreen::class);
 
 // ── Hidden dev routes (the conformance gate + probes) ─
 Route::native('/conformance', ConformanceScreen::class);
