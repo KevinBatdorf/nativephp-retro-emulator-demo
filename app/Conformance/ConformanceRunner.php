@@ -183,8 +183,11 @@ class ConformanceRunner
             }),
             $this->okStep('Boot binds the surface', 'Emulator.Boot', $surface),
             $this->statusStep('Status is stopped before load', 'stopped'),
+            // This leg exercises ares-specific surface (accuracy renderers,
+            // deepBlackBoost) — pin the engine so the app's preference map
+            // can't route sfc to a fetched core underneath the assertions.
             $this->okStep('LoadSystem initialises sfc', 'Emulator.LoadSystem', [
-                ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false],
+                ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false, 'backend' => 'ares'],
             ]),
             // Controllers are explicit: register a gamepad so GetPorts
             // reports its buttons. The registration persists across the boot below.
@@ -523,7 +526,7 @@ class ConformanceRunner
             // first-ever execution in this plugin), read the binding back from
             // the core, then reboot to the performance default.
             $this->okStep('LoadSystem accepts pixelAccuracy', 'Emulator.LoadSystem', [
-                ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false, 'pixelAccuracy' => true],
+                ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false, 'pixelAccuracy' => true, 'backend' => 'ares'],
             ]),
             $this->okStep('LoadRom reboots under the accurate PPU', 'Emulator.LoadRom', [...$surface, 'path' => $romPath]),
             $this->waitStep('EmulatorStarted fires under the accurate PPU', 'Emulator.LoadRom', EmulatorStarted::class, timeout: 15),
@@ -532,7 +535,7 @@ class ConformanceRunner
                     ? null
                     : 'expected accuracy "accurate", got '.json_encode($r)),
             $this->okStep('LoadSystem restores the performance default', 'Emulator.LoadSystem', [
-                ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false],
+                ...$surface, 'system' => 'sfc', 'config' => ['autoSave' => false, 'backend' => 'ares'],
             ]),
             $this->okStep('LoadRom reboots under the performance PPU', 'Emulator.LoadRom', [...$surface, 'path' => $romPath]),
             $this->waitStep('EmulatorStarted fires after the reboot back', 'Emulator.LoadRom', EmulatorStarted::class, timeout: 15),

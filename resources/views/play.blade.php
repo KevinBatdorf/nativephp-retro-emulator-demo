@@ -185,7 +185,7 @@
                     <native:column class="w-full gap-2">
                         <native:text class="text-white text-base font-semibold">Engine</native:text>
                         <native:row class="w-full items-center justify-between">
-                            <native:text class="text-gray-200 text-sm">{{ $backend === '' ? 'Built-in (ares)' : $backend }}</native:text>
+                            <native:text class="text-gray-200 text-sm">{{ $backend === '' ? 'App default' : $backend }}</native:text>
                             <native:button label="Switch" @press="cycleBackend" />
                         </native:row>
                     </native:column>
