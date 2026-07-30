@@ -39,13 +39,12 @@ texts in [`resources/roms/license.txt`](resources/roms/license.txt)):
 - **Super Tilt Bro.** (NES) — Sylvain Gadrat, WTFPL
 - **Space Rescue Squad** (SNES) — Marcus Rowe / KungFuFurby, zlib
 - **Rex Runner GB** (Game Boy) — The Void, MIT
-- **uCity v1.3** (GBC) — Antonio Niño Díaz, GPLv3+ (media CC BY-SA 4.0).
-  Unmodified release binary; complete corresponding source is the `v1.3` tag
-  at <https://codeberg.org/SkyLyrac/ucity> (mirror: github.com/AntonioND/ucity)
+- **Tobu Tobu Girl Deluxe** (GBC) — Tangram Games (Simon Larsen), code MIT,
+  assets CC-BY-4.0 (credit: "Tobu Tobu Girl by Tangram Games")
 - **Miniplanets** (Genesis) — Javier Degirolmo (Sik), zlib
 - **Blind Jump** (GBA) — Evan Bowman, MIT
-- Alternates in `resources/roms/`: Tobu Tobu Girl / Deluxe — Tangram Games,
-  MIT + CC-BY-4.0; Butano Fighter — Gustavo Valiente, zlib
+- Alternates in `resources/roms/`: Tobu Tobu Girl (original GB) — Tangram
+  Games, MIT + CC-BY-4.0; Butano Fighter — Gustavo Valiente, zlib
 
 ## Build it yourself
 

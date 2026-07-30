@@ -14,7 +14,7 @@ class BundledRoms
         'fc' => 'super-tilt-bro.nes',        // WTFPL
         'sfc' => 'space-rescue-squad.sfc',   // zlib
         'gb' => 'rex-runner.gb',             // MIT
-        'gbc' => 'ucity.gbc',                // GPL-3.0-or-later — see license.txt
+        'gbc' => 'tobu-tobu-girl-dx.gbc',    // MIT + CC-BY-4.0 — see license.txt
         'md' => 'miniplanets.bin',           // zlib
         'gba' => 'blind-jump.gba',           // MIT
     ];

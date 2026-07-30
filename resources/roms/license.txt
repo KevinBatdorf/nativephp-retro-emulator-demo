@@ -14,32 +14,13 @@ Bundled and playable from the home screen
   https://github.com/undisbeliever/space-rescue-squad
 - Game Boy — "Rex Runner GB" by The Void (etdv-thevoid), MIT.
   https://github.com/etdv-thevoid/rex-runner-gb
-- Game Boy Color — "uCity" v1.3 by Antonio Niño Díaz (AntonioND / SkyLyrac).
-  See the GPL note below.
+- Game Boy Color — "Tobu Tobu Girl Deluxe" by Tangram Games (Simon Larsen).
+  Code MIT, assets CC-BY-4.0 (credit: "Tobu Tobu Girl by Tangram Games").
+  https://tangramgames.dk/tobutobugirl/
 - Genesis — "Miniplanets" by Javier Degirolmo (Sik), zlib.
   https://github.com/sikthehedgehog/miniplanets
 - Game Boy Advance — "Blind Jump" by Evan Bowman, MIT.
   https://github.com/evanbowman/blind-jump-portable
-
-GPL source offer (uCity)
-------------------------
-
-uCity's code is licensed GPLv3-or-later (some files are 2-clause BSD, e.g. GBT
-Player); its graphics and music are CC BY-SA 4.0. The ROM bundled here is the
-author's unmodified v1.3 release binary:
-
-    ucity.gbc   131072 bytes
-    sha256      9422ee2ca7b7ea1d46b58b2a429fff3f354dfd3e732dee1e7ae6220f148ce6e0
-
-The complete corresponding source for that exact version is the v1.3 tag of the
-author's repository, available at no charge from:
-
-    https://codeberg.org/SkyLyrac/ucity        (canonical, tag v1.3)
-    https://github.com/AntonioND/ucity         (mirror, tag v1.3)
-
-Not modified by this project. If you redistribute this app, that source offer
-has to travel with it — GPLv3 §6(d) permits pointing at the author's server
-provided these directions stay next to the binary.
 
 Also bundled
 ------------
@@ -51,7 +32,7 @@ Also bundled
 Previously bundled, still in resources/roms as alternates
 --------------------------------------------------------
 
-- "Tobu Tobu Girl" / "Tobu Tobu Girl Deluxe" by Tangram Games (Simon Larsen).
+- "Tobu Tobu Girl" (original GB) by Tangram Games (Simon Larsen).
   Code MIT, assets CC-BY-4.0 (credit: "Tobu Tobu Girl by Tangram Games").
   https://tangramgames.dk/tobutobugirl/
 - "Butano Fighter" by Gustavo Valiente, made with the Butano engine, zlib.
