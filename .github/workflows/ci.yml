@@ -1,0 +1,29 @@
+# Syntax-lint only: composer install needs two local path repos
+# (../nativephp-retro-emulator and ../nativephp-fullscreen), so the Pest
+# suite can't run hosted until those resolve remotely (checkout both as
+# siblings with a PAT, or point composer at their GitHub repos). Lint still
+# catches the common demo breakage — a bad edit in app/ or config/.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: PHP syntax
+        run: |
+          set -e
+          find app config database routes tests -name '*.php' -print0 \
+            | xargs -0 -n 1 -P 4 php -l > /dev/null
+          echo "all PHP files parse"
