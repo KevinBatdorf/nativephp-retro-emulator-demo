@@ -1,22 +1,22 @@
 # Retro Emulator — Demo
 
-The showcase app for the
+Demo app for the
 [retro-emulator](https://github.com/KevinBatdorf/nativephp-retro-emulator)
-NativePHP Mobile plugin. Tap a console, play instantly — touch controls,
-save states, rewind, fast-forward, an engine picker, and a CRT shader.
+NativePHP Mobile plugin — boots each supported system with a bundled
+homebrew game to check the plugin works on a real device.
 
-- **NES** — Super Tilt Bro.
-- **SNES** — Space Rescue Squad
-- **Game Boy** — Rex Runner
-- **Game Boy Color** — Tobu Tobu Girl Deluxe
-- **Game Boy Advance** — Blind Jump
-- **Genesis** — Miniplanets
+- NES
+- SNES
+- Game Boy
+- Game Boy Color
+- Game Boy Advance
+- Genesis
 
-## Test it on Android
+## Android
 
-Grab the debug APK (GitHub release, or
+Install the debug APK (GitHub release, or
 `nativephp/android/app/build/outputs/apk/debug/app-debug.apk` after a
-build) — no toolchain needed:
+build):
 
 ```bash
 adb install app-debug.apk
@@ -38,7 +38,7 @@ php artisan native:run android
 After the first build, `php artisan native:jump` hot-reloads PHP/Blade
 edits without rebuilding.
 
-## Test it on iOS
+## iOS
 
 Same source setup, then build the plugin's framework and wire the pod —
 the Podfile generator only knows published pods, so add the path pod by
