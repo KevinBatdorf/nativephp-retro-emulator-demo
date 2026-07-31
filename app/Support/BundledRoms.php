@@ -13,7 +13,7 @@ class BundledRoms
     public const SYSTEMS = [
         'fc' => 'super-tilt-bro.nes',        // WTFPL
         'sfc' => 'space-rescue-squad.sfc',   // zlib
-        'gb' => 'rex-runner.gb',             // MIT
+        'gb' => 'gb-wordyl.gb',              // GPL-3.0 — see license.txt
         'gbc' => 'tobu-tobu-girl-dx.gbc',    // MIT + CC-BY-4.0 — see license.txt
         'md' => 'miniplanets.bin',           // zlib
         'gba' => 'blind-jump.gba',           // MIT

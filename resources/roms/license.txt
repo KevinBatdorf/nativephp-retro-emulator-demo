@@ -12,8 +12,8 @@ Bundled and playable from the home screen
 - SNES — "Space Rescue Squad" by Marcus Rowe (undisbeliever), music by
   KungFuFurby. Code zlib; resources source-available.
   https://github.com/undisbeliever/space-rescue-squad
-- Game Boy — "Rex Runner GB" by The Void (etdv-thevoid), MIT.
-  https://github.com/etdv-thevoid/rex-runner-gb
+- Game Boy — "GB-Wordyl" by bbbbbr, GPL-3.0. See the GPL note below.
+  https://github.com/bbbbbr/gb-wordyl
 - Game Boy Color — "Tobu Tobu Girl Deluxe" by Tangram Games (Simon Larsen).
   Code MIT, assets CC-BY-4.0 (credit: "Tobu Tobu Girl by Tangram Games").
   https://tangramgames.dk/tobutobugirl/
@@ -21,6 +21,19 @@ Bundled and playable from the home screen
   https://github.com/sikthehedgehog/miniplanets
 - Game Boy Advance — "Blind Jump" by Evan Bowman, MIT.
   https://github.com/evanbowman/blind-jump-portable
+
+GPL source offer (GB-Wordyl)
+----------------------------
+
+GB-Wordyl is licensed GPL-3.0. The ROM bundled here is the author's
+unmodified English build as distributed on gbdev Homebrew Hub
+(GBWORDYL_0.85_en.gb). The complete corresponding source is available at
+no charge from the author's repository:
+
+    https://github.com/bbbbbr/gb-wordyl
+
+Not modified by this project. If you redistribute this app, keep these
+directions next to the binary so the source offer travels with it.
 
 Also bundled
 ------------
@@ -32,6 +45,8 @@ Also bundled
 Previously bundled, still in resources/roms as alternates
 --------------------------------------------------------
 
+- "Rex Runner GB" by The Void (etdv-thevoid), MIT.
+  https://github.com/etdv-thevoid/rex-runner-gb
 - "Tobu Tobu Girl" (original GB) by Tangram Games (Simon Larsen).
   Code MIT, assets CC-BY-4.0 (credit: "Tobu Tobu Girl by Tangram Games").
   https://tangramgames.dk/tobutobugirl/

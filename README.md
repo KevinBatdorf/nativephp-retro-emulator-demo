@@ -62,13 +62,14 @@ Every bundled game is freely-licensed homebrew — full texts in
 
 - **Super Tilt Bro.** — Sylvain Gadrat, WTFPL
 - **Space Rescue Squad** — Marcus Rowe / KungFuFurby, zlib
-- **Rex Runner GB** — The Void, MIT
+- **GB-Wordyl** — bbbbbr, GPL-3.0 (unmodified build; source at github.com/bbbbbr/gb-wordyl)
 - **Tobu Tobu Girl Deluxe** — Tangram Games (Simon Larsen), code MIT,
   assets CC-BY-4.0 (credit: "Tobu Tobu Girl by Tangram Games")
 - **Miniplanets** — Javier Degirolmo (Sik), zlib
 - **Blind Jump** — Evan Bowman, MIT
-- Alternates in `resources/roms/`: Tobu Tobu Girl (GB) — Tangram Games,
-  MIT + CC-BY-4.0; Butano Fighter — Gustavo Valiente, zlib
+- Alternates in `resources/roms/`: Rex Runner GB — The Void, MIT;
+  Tobu Tobu Girl (GB) — Tangram Games, MIT + CC-BY-4.0; Butano Fighter —
+  Gustavo Valiente, zlib
 
 ## License
 
