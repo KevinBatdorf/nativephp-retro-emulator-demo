@@ -398,19 +398,13 @@ class ConformanceRunner
             $this->okStep('ReleaseButton the mouse Left button', 'Emulator.ReleaseButton', [
                 ...$surface, 'port' => 2, 'button' => 'Left',
             ]),
-            // Light-gun: swap the mouse for a Super Scope, aim it, pull trigger.
-            $this->okStep('ConnectDevice a Super Scope on port 2', 'Emulator.ConnectDevice', [
-                ...$surface, 'port' => 2, 'device' => 'Super Scope',
-            ]),
-            $this->okStep('AimAt centres the light-gun', 'Emulator.AimAt', [
+            // aimAt: absolute positioning rides the same axis channel as SetAxis.
+            $this->okStep('AimAt centres the mouse cursor', 'Emulator.AimAt', [
                 ...$surface, 'port' => 2, 'x' => 0.5, 'y' => 0.5,
             ]),
             $this->errorStep('AimAt rejects a device without axes', 'Emulator.AimAt', [
                 ...$surface, 'port' => 1, 'x' => 0.5, 'y' => 0.5,
             ], code: 'INVALID_PARAMETERS'),
-            $this->okStep('PressButton the Super Scope trigger', 'Emulator.PressButton', [
-                ...$surface, 'port' => 2, 'button' => 'Trigger',
-            ]),
             // Super Multitap: port 2 fans out to four players → logical ports 2-5.
             $this->callStep('ConnectDevice a Super Multitap fans out to 4 players', 'Emulator.ConnectDevice', [
                 ...$surface, 'port' => 2, 'device' => 'Super Multitap',
@@ -504,6 +498,11 @@ class ConformanceRunner
                 fn (?array $r) => is_array($r['devices'] ?? null)
                     ? null
                     : 'expected a devices array, got '.json_encode($r)),
+            $this->callStep('GetEngineOptions lists engine-declared options', 'Emulator.GetEngineOptions', $surface,
+                // Empty is a valid answer — the built-in engine declares none.
+                fn (?array $r) => is_array($r['options'] ?? null)
+                    ? null
+                    : 'expected an options array, got '.json_encode($r)),
             // Staging a real Sufami Turbo slot ROM needs media this app does not
             // bundle, so only the missing-path contract is deterministic here.
             $this->callStep('StageSlot reports a missing slot ROM as failed', 'Emulator.StageSlot', [

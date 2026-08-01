@@ -80,6 +80,7 @@ class FakeNative
             'Emulator.GetStatus' => $this->getStatus(),
             'Emulator.GetRegion' => json_encode(['region' => 'NTSC']),
             'Emulator.GetInputDevices' => json_encode(['devices' => []]),
+            'Emulator.GetEngineOptions' => json_encode(['options' => []]),
             'Emulator.GetPressedButtons' => $this->getPressedButtons($payload),
             'Emulator.LoadSystem' => $this->loadSystem($payload),
             'Emulator.GetPorts' => $this->getPorts(),
@@ -123,8 +124,9 @@ class FakeNative
     }
 
     /**
-     * Non-default-gamepad SNES devices, mirroring ares_jni.cpp's deviceTable().
-     * A multitap is a container: no inputs of its own, `block` logical ports.
+     * Non-default-gamepad SNES devices, mirroring the plugin's
+     * system_catalog.cpp extraDevices. A multitap is a container: no inputs
+     * of its own, `block` logical ports.
      *
      * @return array<string, array{buttons: list<string>, axes: list<string>, block?: int}>
      */
@@ -132,8 +134,6 @@ class FakeNative
     {
         return [
             'Mouse' => ['buttons' => ['Left', 'Right'], 'axes' => ['X', 'Y']],
-            'Super Scope' => ['buttons' => ['Trigger', 'Cursor', 'Turbo', 'Pause'], 'axes' => ['X', 'Y']],
-            'Justifier' => ['buttons' => ['Trigger', 'Start'], 'axes' => ['X', 'Y']],
             'Super Multitap' => ['buttons' => [], 'axes' => [], 'block' => 4],
         ];
     }
@@ -676,7 +676,7 @@ it('exercises every bridge function declared in the plugin manifest', function (
     $declared = array_column($manifest['bridge_functions'], 'name');
     $called = array_unique(array_column($native->calls, 'function'));
 
-    expect($declared)->toHaveCount(42)
+    expect($declared)->toHaveCount(43)
         ->and(array_values(array_diff($declared, $called)))->toBe([]);
 });
 
