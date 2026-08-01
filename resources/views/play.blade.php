@@ -91,9 +91,16 @@
             {{-- One input area, not four buttons: the plugin's element resolves
                  the finger's position natively, so diagonals work and sliding
                  off the pad keeps walking. No PHP runs per press. --}}
-            <native:dpad surface="play" class="w-36 h-36"
-                :threshold="$dpadThreshold" :diagonal-ratio="$dpadDiagonalRatio" />
+            {{-- Spacer columns, not margins: EDGE margin utilities don't move
+                 native surface elements. w-9 + the row's px-5 ≈ the iPhone's
+                 59pt landscape safe-area, so the clusters clear the island. --}}
+            <native:row class="items-end">
+                <native:column class="w-9" />
+                <native:dpad surface="play" class="w-36 h-36"
+                    :threshold="$dpadThreshold" :diagonal-ratio="$dpadDiagonalRatio" />
+            </native:row>
 
+            <native:row class="items-end">
             <native:column class="items-center gap-1">
                 @foreach ($faceRows as $row)
                     <native:row class="gap-1 items-center">
@@ -109,6 +116,8 @@
                     </native:row>
                 @endforeach
             </native:column>
+                <native:column class="w-9" />
+            </native:row>
         </native:row>
 
         {{-- Select/Start under the game's letterbox — a full-width centered
