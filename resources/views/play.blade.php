@@ -56,7 +56,9 @@
     {{-- pt-8 clears the iPhone notch / Dynamic Island (Android is immersive). --}}
     <native:column class="w-full h-full justify-between">
         <native:column class="w-full gap-2">
-            <native:row class="w-full px-3 pt-8 pb-1 items-center justify-between">
+            {{-- px-5: buttons flush with the screen edge sit in the rounded
+                 corners / rotated-island shadow and miss taps. --}}
+            <native:row class="w-full px-5 pt-8 pb-1 items-center justify-between">
                 <native:button label="Back" @press="leave" />
                 @if ($error !== '')
                     <native:text class="text-red-400 text-sm">⚠ {{ $error }}</native:text>
@@ -65,7 +67,7 @@
             </native:row>
 
             @if ($has('L') || $has('R'))
-                <native:row class="w-full px-4 items-center justify-between">
+                <native:row class="w-full px-5 items-center justify-between">
                     @if ($has('L'))
                         <native:pressable class="w-28 py-2 rounded-full items-center {{ $ring }} {{ $bg('L', 'bg-gray-700/40') }}" @pressDown="press('L')" @pressUp="release('L')">
                             <native:text class="{{ $lbl }}">L</native:text>
@@ -85,7 +87,7 @@
         </native:column>
 
         <native:column class="w-full gap-2">
-        <native:row class="w-full px-3 items-end justify-between">
+        <native:row class="w-full px-5 items-end justify-between">
             {{-- One input area, not four buttons: the plugin's element resolves
                  the finger's position natively, so diagonals work and sliding
                  off the pad keeps walking. No PHP runs per press. --}}
@@ -109,10 +111,11 @@
             </native:column>
         </native:row>
 
-        {{-- Select/Start on the bottom edge, under the game's letterbox —
-             a full-width centered row also can't overflow portrait. --}}
+        {{-- Select/Start under the game's letterbox — a full-width centered
+             row also can't overflow portrait. pb-9 lifts it out of the iPhone
+             home-indicator gesture zone, which eats taps. --}}
         @if (count($groups['system']))
-            <native:row class="w-full pb-4 items-center justify-center gap-3">
+            <native:row class="w-full pb-9 items-center justify-center gap-3">
                 @foreach ($groups['system'] as $b)
                     <native:pressable class="py-1 px-3 rounded-full {{ $ring }} {{ $bg($b, 'bg-gray-700/40') }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
                         <native:text class="text-white/80 text-xs">{{ strtoupper($b) }}</native:text>
@@ -128,13 +131,13 @@
          background (EDGE lazy-grid mislays out, so rows are explicit). --}}
     @if ($menuOpen)
         <native:column class="w-full h-full bg-gray-950">
-            <native:row class="w-full px-4 pt-8 pb-2 items-center justify-between">
+            <native:row class="w-full px-5 pt-8 pb-2 items-center justify-between">
                 <native:text class="text-white text-lg font-semibold">Menu</native:text>
                 <native:button label="✕ Resume" @press="toggleMenu" />
             </native:row>
 
             <native:scroll-view class="flex-1 w-full">
-                <native:column class="w-full px-4 pb-8 gap-5">
+                <native:column class="w-full px-5 pb-10 gap-5">
                     {{-- Transport — explicit pairs, uniform pill styling. --}}
                     <native:column class="w-full gap-2">
                         <native:text class="text-white text-base font-semibold">Playback</native:text>
