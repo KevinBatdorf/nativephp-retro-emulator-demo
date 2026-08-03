@@ -48,7 +48,7 @@
 
 {{-- The game fills the screen; controls hug the corners like a real handheld.
      input-capture="global" installs a window-level gamepad capturer so the
-     Thor's built-in pad + any paired BT controller drive the game regardless of
+     a device's built-in pad + any paired BT controller drive the game regardless of
      view focus. Touch still reaches the overlay buttons. --}}
 <native:stack class="flex-1 w-full h-full bg-black">
     <native:emulator name="play" input-capture="global" class="w-full h-full" />

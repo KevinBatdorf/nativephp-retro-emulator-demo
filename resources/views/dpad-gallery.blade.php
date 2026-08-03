@@ -32,9 +32,9 @@
                                         class="w-20 h-20"
                                         @change="steer"
                                         :pan-x="$ballX" :pan-y="$ballY"
-                                        {{-- Bounds must fit the narrowest surface (iPhone portrait) or the ball leaves the screen. --}}
-                                        pan-x-min="0" pan-x-max="300"
-                                        pan-y-min="0" pan-y-max="280"
+                                        {{-- Negative max = window extent minus the ball's size and offsets. --}}
+                                        pan-x-min="0" pan-x-max="-56"
+                                        pan-y-min="0" pan-y-max="-128"
                                         :threshold="$attrs['threshold'] ?? null"
                                         :diagonal-ratio="$attrs['diagonalRatio'] ?? null"
                                         :thickness="$attrs['thickness'] ?? null"
