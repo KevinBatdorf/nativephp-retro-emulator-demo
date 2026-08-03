@@ -150,7 +150,7 @@ class Catalog
             'fc' => ['ares', 'fceumm'],
             'gb', 'gbc' => ['sameboy', 'ares'],
             'gba' => ['mgba', 'ares'],
-            'md' => ['ares'],
+            'md' => ['ares', 'picodrive'],
             default => [],
         };
     }

@@ -31,7 +31,7 @@
 
     $ring = 'border-2 border-white/80';
     $lbl = 'text-white text-sm text-center font-semibold';
-    $face = "w-12 h-12 rounded-full items-center justify-center $ring";
+    $face = "w-11 h-11 rounded-full items-center justify-center $ring";
 
     // Transport rows (chunked into pairs — lazy-grid mislays out in EDGE).
     $transport = [
@@ -96,7 +96,7 @@
                  59pt landscape safe-area, so the clusters clear the island. --}}
             <native:row class="items-end">
                 <native:column class="w-9" />
-                <native:dpad surface="play" class="w-36 h-36"
+                <native:dpad surface="play" class="w-32 h-32"
                     :threshold="$dpadThreshold" :diagonal-ratio="$dpadDiagonalRatio" />
             </native:row>
 
@@ -110,7 +110,7 @@
                                     <native:text class="{{ $lbl }}">{{ $b }}</native:text>
                                 </native:pressable>
                             @else
-                                <native:column class="w-12 h-12" />
+                                <native:column class="w-11 h-11" />
                             @endif
                         @endforeach
                     </native:row>
