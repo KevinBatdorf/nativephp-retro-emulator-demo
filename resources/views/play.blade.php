@@ -87,7 +87,7 @@
         </native:column>
 
         <native:column class="w-full gap-2">
-        <native:row class="w-full px-5 items-end justify-between">
+        <native:row class="w-full px-5 pb-6 items-end justify-between">
             {{-- One input area, not four buttons: the plugin's element resolves
                  the finger's position natively, so diagonals work and sliding
                  off the pad keeps walking. No PHP runs per press. --}}
