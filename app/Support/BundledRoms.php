@@ -52,6 +52,35 @@ class BundledRoms
         'gba' => ['gba'],
     ];
 
+    /**
+     * Up to $limit ROMs for a system: everything dropped into
+     * storage/app/roms/<system>/ in name order, then the bundled homebrew if
+     * there is still room. Values are absolute paths.
+     */
+    public static function listForSystem(string $system, int $limit = 3): array
+    {
+        $found = [];
+        $dir = storage_path('app/roms/'.$system);
+
+        foreach (self::EXTENSIONS[$system] ?? [] as $ext) {
+            foreach (glob($dir.'/*.'.$ext) ?: [] as $path) {
+                $found[] = $path;
+            }
+        }
+        sort($found);
+        $found = array_slice($found, 0, $limit);
+
+        if (count($found) < $limit) {
+            $bundled = self::SYSTEMS[$system] ?? null;
+            $path = $bundled === null ? null : self::path($bundled);
+            if ($path !== null && ! in_array($path, $found, true)) {
+                $found[] = $path;
+            }
+        }
+
+        return $found;
+    }
+
     public static function forSystem(string $system): ?string
     {
         // A ROM the user dropped into storage/app/roms/<system>/ overrides the

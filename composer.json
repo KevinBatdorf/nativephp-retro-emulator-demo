@@ -14,8 +14,8 @@
         "kevinbatdorf/retro-emulator": "@dev",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
-        "nativephp/mobile": "dev-main#ac0c81ccb24d80e48a02b323aa50cfe97ca1d2c6 as 4.0.0",
-        "nativephp/native-ui": "dev-main"
+        "nativephp/mobile": "^4.0",
+        "nativephp/mobile-ui": "dev-main"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -98,9 +98,9 @@
             "url": "https://plugins.nativephp.com"
         },
         {
-            "name": "native-ui",
+            "name": "mobile-ui",
             "type": "vcs",
-            "url": "https://github.com/nativephp/native-ui"
+            "url": "https://github.com/nativephp/mobile-ui"
         },
         {
             "name": "retro-emulator",

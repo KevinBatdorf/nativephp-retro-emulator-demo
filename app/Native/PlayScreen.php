@@ -112,6 +112,12 @@ class PlayScreen extends NativeComponent
     /** Set when a boot-time setting (shader/toggle) changed since the last boot. */
     public bool $rebootNeeded = false;
 
+    /** Audio bench: engine to force, '' for the app's stored setting. */
+    public string $benchEngine = '';
+
+    /** Audio bench: each engine's raw sound instead of the plugin default. */
+    public bool $benchRaw = false;
+
     public function navTitle(): string
     {
         return $this->romName !== '' ? $this->romName : 'Play';
@@ -125,6 +131,8 @@ class PlayScreen extends NativeComponent
 
         $this->id = (string) $this->param('id');
         $this->rom = (string) $this->data('rom');
+        $this->benchEngine = (string) ($this->data('engine') ?? '');
+        $this->benchRaw = (bool) ($this->data('raw') ?? false);
 
         // Home taps navigate here with no ROM in nav data — every system boots
         // its bundled homebrew game.
@@ -173,7 +181,14 @@ class PlayScreen extends NativeComponent
     /** The typed config the ROM boots with (global ⊕ per-system). */
     private function config(): SystemConfig|Config|array
     {
-        return SettingsStore::configFor($this->id);
+        // The audio bench passes a profile so one tap boots a known combination;
+        // an empty profile leaves the app's stored settings alone.
+        $overrides = $this->benchEngine === '' ? [] : [
+            'backend' => $this->benchEngine,
+            'rawAudio' => $this->benchRaw,
+        ];
+
+        return SettingsStore::configFor($this->id, $overrides);
     }
 
     /**

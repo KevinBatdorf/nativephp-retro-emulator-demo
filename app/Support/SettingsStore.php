@@ -111,10 +111,14 @@ class SettingsStore
      * system so its extra toggles (SFC deepBlackBoost, GB colour emulation) are
      * carried through; the four compiled systems all have one.
      */
-    public static function configFor(string $id): SystemConfig|Config|array
+    /**
+     * @param  array<string, mixed>  $overrides  A/B bench values that win over
+     *                                           stored settings for one boot.
+     */
+    public static function configFor(string $id, array $overrides = []): SystemConfig|Config|array
     {
         $g = self::global();
-        $s = self::system($id);
+        $s = array_merge(self::system($id), $overrides);
 
         $shared = [
             'luminance' => (int) $g['luminance'],
@@ -142,6 +146,7 @@ class SettingsStore
                 ...$shared,
                 colorEmulation: (bool) ($s['colorEmulation'] ?? false),
                 interframeBlending: (bool) ($s['interframeBlending'] ?? false),
+                rawAudio: (bool) ($s['rawAudio'] ?? $s['naturalAudio'] ?? false),
             ),
             'fc' => new FcConfig(...$shared, region: $region),
             'md' => new MdConfig(...$shared, region: $region),

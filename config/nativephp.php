@@ -208,6 +208,10 @@ return [
         // Only its src/ and resources/ (the shipped .so) must ship.
         'vendor/kevinbatdorf/retro-emulator/vendor',
         'vendor/kevinbatdorf/retro-emulator/ares',
+        'vendor/kevinbatdorf/retro-emulator/sameboy',
+        'vendor/kevinbatdorf/retro-emulator/mgba',
+        'vendor/kevinbatdorf/retro-emulator/tools',
+        'vendor/kevinbatdorf/retro-emulator/patches',
         'vendor/kevinbatdorf/retro-emulator/android',
         'vendor/kevinbatdorf/retro-emulator/build',
         'vendor/kevinbatdorf/retro-emulator/native',
