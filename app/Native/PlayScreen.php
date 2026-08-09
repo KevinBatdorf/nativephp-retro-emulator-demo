@@ -66,9 +66,8 @@ class PlayScreen extends NativeComponent
     public bool $rewinding = false;
 
     /**
-     * Whether rewind capture was armed for this boot. Capture has to be running
-     * before a rewind has anything to play back, so this can only change on a
-     * fresh boot — toggling it mid-game would arm an empty history.
+     * Whether rewind capture is armed. Applies live; history is empty at the
+     * moment it's enabled and fills from there.
      */
     public bool $rewindEnabled = false;
 
@@ -475,14 +474,37 @@ class PlayScreen extends NativeComponent
 
     public function setCrt(bool $on): void
     {
+        $preset = $on ? SettingsStore::crtPreset() : null;
+
+        if ($on && $preset === null) {
+            Dialog::toast('No CRT preset bundled with this build');
+
+            return;
+        }
+
+        if (! $this->guard(fn () => $this->emu()->setShader($preset))) {
+            return;
+        }
+
         $this->crt = $on;
         SettingsStore::setGlobal('crt', $on);
+        $this->syncBooted('shader');
     }
 
     public function setRewind(bool $on): void
     {
+        $ok = $this->guard(fn () => $this->emu()->configure([
+            'rewind' => $on,
+            'rewindBufferSeconds' => SettingsStore::REWIND_BUFFER_SECONDS,
+        ]));
+
+        if (! $ok) {
+            return;
+        }
+
         $this->rewindEnabled = $on;
         SettingsStore::setGlobal('rewind', $on);
+        $this->syncBooted('rewind', 'rewindBufferSeconds');
     }
 
     public function setAccurate(bool $on): void
@@ -501,8 +523,16 @@ class PlayScreen extends NativeComponent
 
     public function setToggle(string $field, bool $on): void
     {
+        // Enabling a toggle the engine lacks throws; the guard toast carries
+        // the engine's own message and nothing persists, so the next boot
+        // stays clean.
+        if (! $this->guard(fn () => $this->emu()->setSystemOptions([$field => $on]))) {
+            return;
+        }
+
         $this->toggles[$field] = $on;
         SettingsStore::setSystem($this->id, $field, $on);
+        $this->syncBooted($field);
     }
 
     public function resetSettings(): void
@@ -510,6 +540,28 @@ class PlayScreen extends NativeComponent
         SettingsStore::resetGlobal();
         SettingsStore::resetSystem($this->id);
         $this->hydrateSettings();
+
+        // Push the fresh defaults to the running core so picture and audio
+        // match the sliders immediately; boot-only leftovers (engine, region,
+        // accuracy) surface in the reboot diff instead.
+        if ($this->guard(fn () => $this->emu()->setVideo(luminance: 100, saturation: 100, gamma: 100, overscan: false))) {
+            $this->syncBooted('luminance', 'saturation', 'gamma', 'overscan');
+        }
+        if ($this->guard(fn () => $this->emu()->setVolume(100))) {
+            $this->syncBooted('volume');
+        }
+        if ($this->guard(fn () => $this->emu()->setShader(null))) {
+            $this->syncBooted('shader');
+        }
+        if ($this->guard(fn () => $this->emu()->configure(['rewind' => false]))) {
+            $this->syncBooted('rewind', 'rewindBufferSeconds');
+        }
+
+        $toggleFields = array_keys(Catalog::toggles($this->id));
+        if ($toggleFields !== []
+            && $this->guard(fn () => $this->emu()->setSystemOptions(array_fill_keys($toggleFields, false)))) {
+            $this->syncBooted(...$toggleFields);
+        }
     }
 
     /** Re-boot the running game in place to pick up boot-only changes. */

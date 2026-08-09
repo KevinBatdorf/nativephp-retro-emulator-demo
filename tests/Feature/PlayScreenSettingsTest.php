@@ -39,19 +39,39 @@ it('clears the reboot note when the change is reverted', function () {
         ->assertDontSee('applies on reboot');
 });
 
-it('flags a rewind change as boot-pending and clears it on revert', function () {
-    $screen = playScreen()
-        ->call('setRewind', true)
-        ->assertSee('Takes effect on reboot');
+it('applies rewind live without a reboot note when the bridge accepts it', function () {
+    Native::fakeBridge();
 
-    $screen->call('setRewind', false)
+    playScreen()
+        ->call('setRewind', true)
+        ->assertSet('rewindEnabled', true)
+        ->assertDontSee('Takes effect on reboot')
+        ->assertDontSee('applies on reboot');
+
+    expect(SettingsStore::global()['rewind'])->toBeTrue();
+});
+
+it('does not persist a live setting when the bridge call fails', function () {
+    Native::fakeBridge()->respondTo('Emulator.Configure', [
+        'status' => 'error',
+        'code' => 'INVALID_PARAMETERS',
+        'message' => 'No core is running',
+    ]);
+
+    // A refused call must leave the toggle and the store untouched rather
+    // than poisoning the next boot.
+    playScreen()
+        ->call('setRewind', true)
+        ->assertSet('rewindEnabled', false)
         ->assertDontSee('Takes effect on reboot');
+
+    expect(SettingsStore::global()['rewind'])->toBeFalse();
 });
 
 it('suppresses the reboot bar before the first successful boot', function () {
     Native::test(PlayScreen::class, ['id' => 'sfc'], ['rom' => 'game.sfc'])
         ->set('menuOpen', true)
-        ->call('setRewind', true)
+        ->call('setAccurate', true)
         ->assertDontSee('applies on reboot');
 });
 
@@ -63,4 +83,41 @@ it('reports accuracy changes under the wire key only for dual-renderer systems',
     playScreen('gb')
         ->call('setAccurate', true)
         ->assertDontSee('Takes effect on reboot');
+});
+
+it('applies a system toggle live and persists it', function () {
+    Native::fakeBridge();
+
+    playScreen('gbc')
+        ->call('setToggle', 'colorEmulation', true)
+        ->assertDontSee('Takes effect on reboot');
+
+    expect(SettingsStore::system('gbc')['colorEmulation'])->toBeTrue();
+});
+
+it('reverts a toggle when the engine refuses it', function () {
+    Native::fakeBridge()->respondTo('Emulator.SetSystemOptions', [
+        'status' => 'error',
+        'code' => 'UNSUPPORTED_OPTION',
+        'message' => "Backend 'sameboy' does not support interframeBlending",
+    ]);
+
+    playScreen('gbc')
+        ->call('setToggle', 'interframeBlending', true)
+        ->assertDontSee('Takes effect on reboot');
+
+    expect(SettingsStore::system('gbc'))->not->toHaveKey('interframeBlending');
+});
+
+it('reset pushes defaults live and leaves no reboot residue for live keys', function () {
+    Native::fakeBridge();
+
+    $screen = playScreen();
+    $screen->call('setLuminance', 60);
+    expect(SettingsStore::global()['luminance'])->toBe(60);
+
+    $screen->call('resetSettings')
+        ->assertDontSee('applies on reboot');
+
+    expect(SettingsStore::global()['luminance'])->toBe(100);
 });

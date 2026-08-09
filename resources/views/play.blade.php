@@ -183,9 +183,6 @@
                             <native:text class="text-gray-200 text-sm">crt-lottes — applies to every system</native:text>
                             <native:toggle label="" :value="$crt" @change="setCrt" />
                         </native:row>
-                        @isset ($pending['shader'])
-                            <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
-                        @endisset
                     </native:column>
 
                     {{-- Rewind costs CPU continuously while a game runs, so it
@@ -196,9 +193,6 @@
                             <native:text class="text-gray-200 text-sm">Capture history — costs CPU while playing</native:text>
                             <native:toggle label="" :value="$rewindEnabled" @change="setRewind" />
                         </native:row>
-                        @isset ($pending['rewind'])
-                            <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
-                        @endisset
                     </native:column>
 
                     <native:column class="w-full gap-2">
@@ -274,9 +268,6 @@
                                     <native:text class="text-gray-200 text-sm">{{ $meta['label'] }}</native:text>
                                     <native:toggle label="" :value="$toggles[$field] ?? false" @change="setToggle('{{ $field }}')" />
                                 </native:row>
-                                @isset ($pending[$field])
-                                    <native:text native:key="{{ $field }}-pending" class="text-amber-400 text-xs">Takes effect on reboot</native:text>
-                                @endisset
                             @endforeach
                         </native:column>
                     @endif
