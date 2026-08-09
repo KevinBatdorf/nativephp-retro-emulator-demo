@@ -10,6 +10,7 @@ use KevinBatdorf\RetroEmulator\Config\GbConfig;
 use KevinBatdorf\RetroEmulator\Config\MdConfig;
 use KevinBatdorf\RetroEmulator\Config\SfcConfig;
 use KevinBatdorf\RetroEmulator\Config\SystemConfig;
+use KevinBatdorf\RetroEmulator\Facades\Emulator;
 use KevinBatdorf\RetroEmulator\Region;
 use KevinBatdorf\RetroEmulator\Shaders;
 
@@ -126,6 +127,51 @@ class SettingsStore
             ?: (config('retro-emulator.backends')[$id][0] ?? 'ares');
     }
 
+    /** Memoized Emulator::systems() — capability lookups run per render. */
+    private static ?array $systemsCache = null;
+
+    /**
+     * One engine's capability object for a system, [] when unknown
+     * (off-device, or an engine that doesn't serve the system).
+     */
+    public static function capabilitiesFor(string $id, string $backend): array
+    {
+        self::$systemsCache ??= Emulator::systems();
+
+        foreach (self::$systemsCache as $entry) {
+            if (($entry['id'] ?? '') === $id) {
+                return $entry['capabilities'][$backend] ?? [];
+            }
+        }
+
+        return [];
+    }
+
+    private static function videoSettingsAllowed(string $id, array $overrides): bool
+    {
+        $backend = self::effectiveBackend($id, $overrides);
+        $caps = self::capabilitiesFor($id, $backend);
+
+        // Off-device / unknown pair: ares is the only engine that ships
+        // engine-side picture knobs, so the name is the honest fallback.
+        return $caps === []
+            ? $backend === 'ares'
+            : (bool) ($caps['videoSettings'] ?? false);
+    }
+
+    /**
+     * Whether the effective engine accepts enabling $field — enabling an
+     * unsupported toggle at boot throws UNSUPPORTED_OPTION, so stored trues
+     * from another engine's session must not reach this boot's config.
+     */
+    private static function toggleAllowed(string $id, array $overrides, string $field): bool
+    {
+        $caps = self::capabilitiesFor($id, self::effectiveBackend($id, $overrides));
+
+        return $caps === []
+            || in_array($field, $caps['toggles'] ?? [], true);
+    }
+
     // ── Config assembly ─────────────────────────────
 
     /**
@@ -142,16 +188,18 @@ class SettingsStore
     {
         $g = self::global();
         $s = array_merge(self::system($id), $overrides);
-        $onAres = self::effectiveBackend($id, $overrides) === 'ares';
+        $videoOk = self::videoSettingsAllowed($id, $overrides);
+        $tOk = fn (string $field) => self::toggleAllowed($id, $overrides, $field)
+            && (bool) ($s[$field] ?? false);
 
         $shared = [
-            // Engine-side picture knobs exist only on ares; non-neutral values
-            // make a SameBoy/mGBA/libretro boot throw UNSUPPORTED_OPTION, so
-            // they neutralize here rather than brick the boot.
-            'luminance' => $onAres ? (int) $g['luminance'] : 100,
-            'saturation' => $onAres ? (int) $g['saturation'] : 100,
-            'gamma' => $onAres ? (int) $g['gamma'] : 100,
-            'overscan' => $onAres && (bool) $g['overscan'],
+            // Engines without engine-side picture knobs throw
+            // UNSUPPORTED_OPTION on non-neutral values at boot, so they
+            // neutralize here rather than brick the boot.
+            'luminance' => $videoOk ? (int) $g['luminance'] : 100,
+            'saturation' => $videoOk ? (int) $g['saturation'] : 100,
+            'gamma' => $videoOk ? (int) $g['gamma'] : 100,
+            'overscan' => $videoOk && (bool) $g['overscan'],
             'volume' => (int) $g['volume'],
             'balance' => (int) $g['balance'],
             'speed' => (float) $g['speed'],
@@ -172,17 +220,22 @@ class SettingsStore
                 ...$shared,
                 accuracy: $accuracy,
                 region: $region,
-                deepBlackBoost: (bool) ($s['deepBlackBoost'] ?? false),
+                deepBlackBoost: $tOk('deepBlackBoost'),
             ),
             'gb', 'gbc' => new GbConfig(
                 ...$shared,
-                colorEmulation: (bool) ($s['colorEmulation'] ?? false),
-                interframeBlending: (bool) ($s['interframeBlending'] ?? false),
+                colorEmulation: $tOk('colorEmulation'),
+                interframeBlending: $tOk('interframeBlending'),
                 rawAudio: (bool) ($s['rawAudio'] ?? $s['naturalAudio'] ?? false),
             ),
             'fc' => new FcConfig(...$shared, region: $region),
             'md' => new MdConfig(...$shared, region: $region),
-            'gba' => new GbaConfig(...$shared, accuracy: $accuracy),
+            'gba' => new GbaConfig(
+                ...$shared,
+                accuracy: $accuracy,
+                colorEmulation: $tOk('colorEmulation'),
+                interframeBlending: $tOk('interframeBlending'),
+            ),
             default => array_filter(
                 [...$shared, 'region' => $region?->value],
                 fn ($v) => $v !== null,

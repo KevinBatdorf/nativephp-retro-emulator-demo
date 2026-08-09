@@ -115,6 +115,12 @@ class PlayScreen extends NativeComponent
     /** Engine resolved for the running boot ('' until first successful boot). */
     public string $bootedBackend = '';
 
+    /** Engines serving this system, from systems(); Catalog fallback off-device. */
+    public array $backendOptions = [];
+
+    /** Per-engine capability objects for this system, cached on menu open. */
+    public array $systemCaps = [];
+
     /** Audio bench: engine to force, '' for the app's stored setting. */
     public string $benchEngine = '';
 
@@ -343,6 +349,10 @@ class PlayScreen extends NativeComponent
     {
         $this->menuOpen = ! $this->menuOpen;
 
+        if ($this->menuOpen) {
+            $this->refreshEngineData();
+        }
+
         if ($this->status === 'loading') {
             return;
         }
@@ -354,6 +364,64 @@ class PlayScreen extends NativeComponent
             $this->guard(fn () => $this->emu()->resume());
             $this->status = 'running';
         }
+    }
+
+    /**
+     * Cache this system's engine list + capability objects while the menu is
+     * open — systems() is a bridge call, too heavy for every Poll render.
+     */
+    private function refreshEngineData(): void
+    {
+        foreach (Emulator::systems() as $entry) {
+            if (($entry['id'] ?? '') !== $this->id) {
+                continue;
+            }
+
+            $this->backendOptions = $entry['backends'] ?? [];
+            $this->systemCaps = $entry['capabilities'] ?? [];
+
+            // Capabilities can surface toggles the mount-time hydrate didn't
+            // know (GBA's ares-only pair); pull their stored values in.
+            $s = SettingsStore::system($this->id);
+            foreach (array_keys($this->toggleMeta()) as $field) {
+                $this->toggles[$field] ??= (bool) ($s[$field] ?? false);
+            }
+
+            return;
+        }
+
+        $this->backendOptions = Catalog::backends($this->id);
+        $this->systemCaps = [];
+    }
+
+    /**
+     * The toggles this system shows, with engine notes computed from
+     * capabilities: a toggle not served by every engine of the system names
+     * the engines that do. Catalog's static map is the off-device fallback.
+     *
+     * @return array<string, array{label: string, note: string}>
+     */
+    private function toggleMeta(): array
+    {
+        if ($this->systemCaps === []) {
+            return Catalog::toggles($this->id);
+        }
+
+        $meta = [];
+        foreach ($this->systemCaps as $engine => $caps) {
+            foreach ($caps['toggles'] ?? [] as $field) {
+                $meta[$field]['label'] = Catalog::TOGGLE_LABELS[$field] ?? $field;
+                $meta[$field]['engines'][] = $engine;
+            }
+        }
+
+        foreach ($meta as &$entry) {
+            $entry['note'] = count($entry['engines']) === count($this->systemCaps)
+                ? ''
+                : implode(' / ', $entry['engines']).' engine only';
+        }
+
+        return $meta;
     }
 
     public function togglePause(): void
@@ -607,7 +675,7 @@ class PlayScreen extends NativeComponent
 
         return view('play', [
             'groups' => Catalog::groupButtons($this->buttons),
-            'toggleLabels' => Catalog::toggles($this->id),
+            'toggleLabels' => $this->toggleMeta(),
             'controllers' => Emulator::inputDevices(),
             'pending' => $pending,
             'configJson' => $this->menuOpen

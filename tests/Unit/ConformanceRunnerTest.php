@@ -75,7 +75,20 @@ class FakeNative
 
         return match ($function) {
             'Emulator.GetSystems' => json_encode(['systems' => [
-                ['id' => 'sfc', 'name' => 'SNES / Super Famicom', 'supported' => true, 'stable' => true, 'biosRequired' => false],
+                [
+                    'id' => 'sfc', 'name' => 'SNES / Super Famicom',
+                    'supported' => true, 'stable' => true, 'biosRequired' => false,
+                    'backends' => ['ares'],
+                    'capabilities' => [
+                        'ares' => [
+                            'videoSettings' => true, 'rumble' => true, 'serialize' => true,
+                            'cheats' => true, 'memoryAccess' => true, 'slottedMedia' => true,
+                            'multitap' => true, 'mouse' => true,
+                            'toggles' => ['deepBlackBoost'],
+                            'bootOptions' => ['pixelAccuracy'],
+                        ],
+                    ],
+                ],
             ]]),
             'Emulator.GetStatus' => $this->getStatus(),
             'Emulator.GetRegion' => json_encode(['region' => 'NTSC']),
@@ -557,6 +570,14 @@ class FakeNative
 
         if (array_key_exists('pixelAccuracy', $options)) {
             return $this->error('BOOT_ONLY_OPTION', 'pixelAccuracy can only be set in the LoadSystem config');
+        }
+
+        $unknown = array_diff(
+            array_keys($options),
+            ['speed', 'runAhead', 'rewind', 'rewindBufferSeconds', 'engineOptions'],
+        );
+        if ($unknown !== []) {
+            return $this->error('INVALID_PARAMETERS', 'Configure does not accept '.reset($unknown));
         }
 
         if (! in_array($options['runAhead'] ?? 0, [0, 1], true)) {

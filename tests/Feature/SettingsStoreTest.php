@@ -89,15 +89,19 @@ it('resolves the effective backend through explicit choice, config map, then are
     expect(SettingsStore::effectiveBackend('gba'))->toBe('ares');
 });
 
-it('gives GBC the same toggles as GB', function () {
-    expect(Catalog::toggles('gbc'))->toBe(Catalog::toggles('gb'))
-        ->and(Catalog::toggles('gbc'))->toHaveKeys(['colorEmulation', 'interframeBlending']);
+it('gives GBC and GBA toggle fallbacks alongside GB', function () {
+    expect(Catalog::toggles('gbc'))->toHaveKeys(['colorEmulation', 'interframeBlending'])
+        ->and(Catalog::toggles('gb'))->toHaveKeys(['colorEmulation', 'interframeBlending'])
+        ->and(Catalog::toggles('gba'))->toHaveKeys(['colorEmulation', 'interframeBlending']);
 });
 
-it('marks engine-restricted toggles as ares-only', function () {
-    expect(Catalog::toggles('sfc')['deepBlackBoost']['aresOnly'])->toBeTrue()
-        ->and(Catalog::toggles('gb')['colorEmulation']['aresOnly'])->toBeFalse()
-        ->and(Catalog::toggles('gb')['interframeBlending']['aresOnly'])->toBeTrue();
+it('annotates engine-restricted toggles in the fallback map', function () {
+    // Mirrors the engines' capability declarations: DMG colour emulation is
+    // a SameBoy boolean (ares models it as a palette); CGB has it on both.
+    expect(Catalog::toggles('sfc')['deepBlackBoost']['note'])->toBe('ares engine only')
+        ->and(Catalog::toggles('gb')['colorEmulation']['note'])->toBe('sameboy engine only')
+        ->and(Catalog::toggles('gbc')['colorEmulation']['note'])->toBe('')
+        ->and(Catalog::toggles('gba')['interframeBlending']['note'])->toBe('ares engine only');
 });
 
 it('builds GbConfig for gbc with both toggles applied', function () {

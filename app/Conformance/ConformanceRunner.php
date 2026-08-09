@@ -181,6 +181,26 @@ class ConformanceRunner
 
                 return null;
             }),
+            $this->callStep('GetSystems carries per-engine capabilities', 'Emulator.GetSystems', [], function (?array $r) {
+                $systems = $r['systems'] ?? [];
+                $sfc = array_values(array_filter($systems, fn ($s) => ($s['id'] ?? null) === 'sfc'))[0] ?? [];
+                $ares = $sfc['capabilities']['ares'] ?? null;
+
+                if (! is_array($ares)) {
+                    return 'sfc has no ares capability object: '.json_encode($sfc);
+                }
+                if (($ares['toggles'] ?? null) !== ['deepBlackBoost']) {
+                    return 'sfc/ares toggles should be exactly [deepBlackBoost]: '.json_encode($ares);
+                }
+                if (! in_array('pixelAccuracy', $ares['bootOptions'] ?? [], true)) {
+                    return 'sfc/ares bootOptions should carry pixelAccuracy: '.json_encode($ares);
+                }
+                if (($ares['videoSettings'] ?? null) !== true) {
+                    return 'sfc/ares should report videoSettings: '.json_encode($ares);
+                }
+
+                return null;
+            }),
             $this->okStep('Boot binds the surface', 'Emulator.Boot', $surface),
             $this->statusStep('Status is stopped before load', 'stopped'),
             // This leg exercises ares-specific surface (accuracy renderers,
@@ -356,6 +376,11 @@ class ConformanceRunner
             $this->errorStep('Configure pixelAccuracy rejected post-boot', 'Emulator.Configure', [
                 ...$surface, 'options' => ['pixelAccuracy' => true],
             ], code: 'BOOT_ONLY_OPTION'),
+            // Loud, not silent: a key Configure doesn't take must error, not
+            // read as applied (volume belongs to SetAudio).
+            $this->errorStep('Configure rejects a key it does not take', 'Emulator.Configure', [
+                ...$surface, 'options' => ['volume' => 50],
+            ], code: 'INVALID_PARAMETERS'),
             $this->callStep('Status reports the performance renderer', 'Emulator.GetStatus', $surface,
                 fn (?array $r) => ($r['accuracy'] ?? null) === 'performance'
                     ? null

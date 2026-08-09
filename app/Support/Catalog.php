@@ -157,23 +157,41 @@ class Catalog
         };
     }
 
+    /** UI labels for the plugin's boolean toggle fields. */
+    public const TOGGLE_LABELS = [
+        'deepBlackBoost' => 'Deep black boost',
+        'colorEmulation' => 'Colour emulation',
+        'interframeBlending' => 'Interframe blending',
+    ];
+
     /**
-     * Per-system boolean toggles beyond the shared config, keyed by config
-     * field. `aresOnly` marks toggles the other engines refuse to enable —
-     * ares also silently ignores toggles a system lacks, so this map (not
-     * UNSUPPORTED_OPTION) is what decides which toggles a system shows.
+     * Off-device fallback for the per-system toggle set — at runtime the
+     * shown set and engine notes come from Emulator::systems() capabilities
+     * (PlayScreen::toggleMeta). Mirrors the shipped engines' declarations:
+     * DMG's colour emulation is SameBoy-only (ares models it as a palette,
+     * not a boolean), GBA's two toggles are ares-only.
      *
-     * @return array<string, array{label: string, aresOnly: bool}>
+     * @return array<string, array{label: string, note: string}>
      */
     public static function toggles(string $system): array
     {
+        $label = fn (string $field) => ['label' => self::TOGGLE_LABELS[$field]];
+
         return match ($system) {
             'sfc' => [
-                'deepBlackBoost' => ['label' => 'Deep black boost', 'aresOnly' => true],
+                'deepBlackBoost' => $label('deepBlackBoost') + ['note' => 'ares engine only'],
             ],
-            'gb', 'gbc' => [
-                'colorEmulation' => ['label' => 'Colour emulation', 'aresOnly' => false],
-                'interframeBlending' => ['label' => 'Interframe blending', 'aresOnly' => true],
+            'gb' => [
+                'colorEmulation' => $label('colorEmulation') + ['note' => 'sameboy engine only'],
+                'interframeBlending' => $label('interframeBlending') + ['note' => 'ares engine only'],
+            ],
+            'gbc' => [
+                'colorEmulation' => $label('colorEmulation') + ['note' => ''],
+                'interframeBlending' => $label('interframeBlending') + ['note' => 'ares engine only'],
+            ],
+            'gba' => [
+                'colorEmulation' => $label('colorEmulation') + ['note' => 'ares engine only'],
+                'interframeBlending' => $label('interframeBlending') + ['note' => 'ares engine only'],
             ],
             default => [],
         };
