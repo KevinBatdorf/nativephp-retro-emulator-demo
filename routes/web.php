@@ -1,5 +1,6 @@
 <?php
 
+use App\Native\AudioBenchScreen;
 use App\Native\AudioTestScreen;
 use App\Native\ConformanceScreen;
 use App\Native\DeclarativeScreen;
@@ -26,5 +27,6 @@ Route::native('/probe', ProbeScreen::class);
 Route::native('/declarative', DeclarativeScreen::class);
 Route::native('/errors', ErrorsScreen::class);
 Route::native('/audio', AudioTestScreen::class);
+Route::native('/bench', AudioBenchScreen::class);
 Route::native('/shader', ShaderProbeScreen::class);
 Route::native('/dpads', DpadGalleryScreen::class);
