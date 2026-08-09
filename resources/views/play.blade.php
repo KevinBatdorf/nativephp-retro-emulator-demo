@@ -145,6 +145,15 @@
                 <native:button label="✕ Resume" @press="toggleMenu" />
             </native:row>
 
+            {{-- Pinned outside the scroll so a change made anywhere is never
+                 announced below the fold. --}}
+            @if ($pending !== [])
+                <native:row class="w-full px-5 py-2 items-center justify-between bg-amber-900">
+                    <native:text class="text-amber-200 text-sm">{{ count($pending) }} {{ count($pending) === 1 ? 'change applies' : 'changes apply' }} on reboot</native:text>
+                    <native:button label="Reboot now" @press="applyReboot" />
+                </native:row>
+            @endif
+
             <native:scroll-view class="flex-1 w-full">
                 <native:column class="w-full px-5 pb-10 gap-5">
                     {{-- Transport — explicit pairs, uniform pill styling. --}}
@@ -174,6 +183,9 @@
                             <native:text class="text-gray-200 text-sm">crt-lottes — applies to every system</native:text>
                             <native:toggle label="" :value="$crt" @change="setCrt" />
                         </native:row>
+                        @isset ($pending['shader'])
+                            <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
+                        @endisset
                     </native:column>
 
                     {{-- Rewind costs CPU continuously while a game runs, so it
@@ -184,6 +196,9 @@
                             <native:text class="text-gray-200 text-sm">Capture history — costs CPU while playing</native:text>
                             <native:toggle label="" :value="$rewindEnabled" @change="setRewind" />
                         </native:row>
+                        @isset ($pending['rewind'])
+                            <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
+                        @endisset
                     </native:column>
 
                     <native:column class="w-full gap-2">
@@ -192,6 +207,9 @@
                             <native:text class="text-gray-200 text-sm">Dot/cycle renderer (SNES, GBA) — costs CPU</native:text>
                             <native:toggle label="" :value="$accurate" @change="setAccurate" />
                         </native:row>
+                        @isset ($pending['pixelAccuracy'])
+                            <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
+                        @endisset
                     </native:column>
 
                     <native:column class="w-full gap-2">
@@ -200,6 +218,9 @@
                             <native:text class="text-gray-200 text-sm">{{ $backend === '' ? 'App default' : $backend }}</native:text>
                             <native:button label="Switch" @press="cycleBackend" />
                         </native:row>
+                        @isset ($pending['backend'])
+                            <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
+                        @endisset
                     </native:column>
 
                     {{-- Touch pad feel. Sliders carry percentages; the element
@@ -253,6 +274,9 @@
                                     <native:text class="text-gray-200 text-sm">{{ $meta['label'] }}</native:text>
                                     <native:toggle label="" :value="$toggles[$field] ?? false" @change="setToggle('{{ $field }}')" />
                                 </native:row>
+                                @isset ($pending[$field])
+                                    <native:text native:key="{{ $field }}-pending" class="text-amber-400 text-xs">Takes effect on reboot</native:text>
+                                @endisset
                             @endforeach
                         </native:column>
                     @endif
@@ -266,13 +290,6 @@
                             <native:text class="text-gray-400 text-sm">No hardware controller paired — using on-screen controls.</native:text>
                         @endforelse
                     </native:column>
-
-                    @if ($rebootNeeded)
-                        {{-- Plain "and": EDGE renders label text verbatim (no
-                             HTML-entity decode), so &amp; shows literally. --}}
-                        <native:button label="Apply and reboot" @press="applyReboot" />
-                        <native:text class="text-gray-300 text-xs">Shader + system options take effect on reboot.</native:text>
-                    @endif
 
                     <native:button label="Reset to defaults" color="#f87171" @press="resetSettings" />
 

@@ -36,8 +36,9 @@ use Native\Mobile\Facades\Dialog;
  *
  * Settings + transport live in one in-place overlay (the ☰ menu). Opening it
  * pauses the game but KEEPS the surface alive — navigating to a separate screen
- * would tear the surface down and kill the running game. Picture/audio apply
- * live; shader + per-system toggles need a fresh boot, offered as "Apply".
+ * would tear the surface down and kill the running game. Settings apply live
+ * wherever the plugin has a runtime setter; true boot-only options (engine,
+ * renderer accuracy, region) persist and show up in the reboot diff.
  */
 class PlayScreen extends NativeComponent
 {
@@ -109,8 +110,11 @@ class PlayScreen extends NativeComponent
     /** Per-system toggles (deepBlackBoost, colour emulation, …) → bool. */
     public array $toggles = [];
 
-    /** Set when a boot-time setting (shader/toggle) changed since the last boot. */
-    public bool $rebootNeeded = false;
+    /** Wire config the running core actually booted with; empty until then. */
+    public array $bootedConfig = [];
+
+    /** Engine resolved for the running boot ('' until first successful boot). */
+    public string $bootedBackend = '';
 
     /** Audio bench: engine to force, '' for the app's stored setting. */
     public string $benchEngine = '';
@@ -181,14 +185,72 @@ class PlayScreen extends NativeComponent
     /** The typed config the ROM boots with (global ⊕ per-system). */
     private function config(): SystemConfig|Config|array
     {
-        // The audio bench passes a profile so one tap boots a known combination;
-        // an empty profile leaves the app's stored settings alone.
-        $overrides = $this->benchEngine === '' ? [] : [
+        return SettingsStore::configFor($this->id, $this->benchOverrides());
+    }
+
+    /**
+     * The audio bench passes a profile so one tap boots a known combination;
+     * an empty profile leaves the app's stored settings alone.
+     */
+    private function benchOverrides(): array
+    {
+        return $this->benchEngine === '' ? [] : [
             'backend' => $this->benchEngine,
             'rawAudio' => $this->benchRaw,
         ];
+    }
 
-        return SettingsStore::configFor($this->id, $overrides);
+    /** The boot config as the wire array (enums flattened, nulls dropped). */
+    private function configArray(): array
+    {
+        $config = $this->config();
+        $array = is_object($config) && method_exists($config, 'toArray')
+            ? $config->toArray()
+            : (array) $config;
+
+        return json_decode(json_encode($array) ?: '[]', true) ?: [];
+    }
+
+    /**
+     * Stored settings that differ from what the running core booted with —
+     * these are the changes only a reboot can pick up, since live setters
+     * sync the snapshot as they apply. Key → ['from' => …, 'to' => …].
+     */
+    public function pendingReboot(): array
+    {
+        if ($this->bootedConfig === []) {
+            return [];
+        }
+
+        $next = $this->configArray();
+        $pending = [];
+
+        foreach (array_unique([...array_keys($this->bootedConfig), ...array_keys($next)]) as $key) {
+            $from = $this->bootedConfig[$key] ?? null;
+            $to = $next[$key] ?? null;
+            if ($from !== $to) {
+                $pending[$key] = ['from' => $from, 'to' => $to];
+            }
+        }
+
+        return $pending;
+    }
+
+    /** After a live setter lands, the running core matches the store again. */
+    private function syncBooted(string ...$keys): void
+    {
+        if ($this->bootedConfig === []) {
+            return;
+        }
+
+        $next = $this->configArray();
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $next)) {
+                $this->bootedConfig[$key] = $next[$key];
+            } else {
+                unset($this->bootedConfig[$key]);
+            }
+        }
     }
 
     /**
@@ -212,6 +274,8 @@ class PlayScreen extends NativeComponent
 
             $this->booted = true;
             $this->error = '';
+            $this->bootedConfig = $this->configArray();
+            $this->bootedBackend = SettingsStore::effectiveBackend($this->id, $this->benchOverrides());
         } catch (EmulatorException $e) {
             // Surface not attached yet — keep retrying for a few seconds before
             // surfacing the failure.
@@ -362,58 +426,69 @@ class PlayScreen extends NativeComponent
 
     public function setLuminance(float $v): void
     {
-        $this->luminance = (int) round($v);
-        SettingsStore::setGlobal('luminance', $this->luminance);
-        $this->guard(fn () => $this->emu()->setVideo(luminance: $this->luminance));
+        $this->applyVideo('luminance', (int) round($v));
     }
 
     public function setSaturation(float $v): void
     {
-        $this->saturation = (int) round($v);
-        SettingsStore::setGlobal('saturation', $this->saturation);
-        $this->guard(fn () => $this->emu()->setVideo(saturation: $this->saturation));
+        $this->applyVideo('saturation', (int) round($v));
     }
 
     public function setGamma(float $v): void
     {
-        $this->gamma = (int) round($v);
-        SettingsStore::setGlobal('gamma', $this->gamma);
-        $this->guard(fn () => $this->emu()->setVideo(gamma: $this->gamma));
+        $this->applyVideo('gamma', (int) round($v));
     }
 
     public function setOverscan(bool $on): void
     {
-        $this->overscan = $on;
-        SettingsStore::setGlobal('overscan', $on);
-        $this->guard(fn () => $this->emu()->setVideo(overscan: $on));
+        $this->applyVideo('overscan', $on);
+    }
+
+    /**
+     * Live picture setter: apply to the running core first, persist + sync
+     * the boot snapshot only on success — a failed call must not poison the
+     * next boot's config or desync the sliders from reality.
+     */
+    private function applyVideo(string $key, int|bool $value): void
+    {
+        if (! $this->guard(fn () => $this->emu()->setVideo(...[$key => $value]))) {
+            return;
+        }
+
+        $this->{$key} = $value;
+        SettingsStore::setGlobal($key, $value);
+        $this->syncBooted($key);
     }
 
     public function setVolume(float $v): void
     {
-        $this->volume = (int) round($v);
-        SettingsStore::setGlobal('volume', $this->volume);
-        $this->guard(fn () => $this->emu()->setVolume($this->volume));
+        $volume = (int) round($v);
+
+        if (! $this->guard(fn () => $this->emu()->setVolume($volume))) {
+            return;
+        }
+
+        $this->volume = $volume;
+        SettingsStore::setGlobal('volume', $volume);
+        $this->syncBooted('volume');
     }
 
     public function setCrt(bool $on): void
     {
         $this->crt = $on;
         SettingsStore::setGlobal('crt', $on);
-        $this->rebootNeeded = true;
     }
 
     public function setRewind(bool $on): void
     {
         $this->rewindEnabled = $on;
         SettingsStore::setGlobal('rewind', $on);
-        $this->rebootNeeded = true;
     }
 
     public function setAccurate(bool $on): void
     {
         $this->accurate = $on;
         SettingsStore::setSystem($this->id, 'accurate', $on);
-        $this->rebootNeeded = true;
     }
 
     public function cycleBackend(): void
@@ -422,14 +497,12 @@ class PlayScreen extends NativeComponent
         $at = array_search($this->backend, $options, true);
         $this->backend = $options[($at === false ? 1 : $at + 1) % count($options)];
         SettingsStore::setSystem($this->id, 'backend', $this->backend);
-        $this->rebootNeeded = true;
     }
 
     public function setToggle(string $field, bool $on): void
     {
         $this->toggles[$field] = $on;
         SettingsStore::setSystem($this->id, $field, $on);
-        $this->rebootNeeded = true;
     }
 
     public function resetSettings(): void
@@ -437,17 +510,17 @@ class PlayScreen extends NativeComponent
         SettingsStore::resetGlobal();
         SettingsStore::resetSystem($this->id);
         $this->hydrateSettings();
-        $this->rebootNeeded = true;
     }
 
-    /** Re-boot the running game in place to pick up shader / per-system changes. */
+    /** Re-boot the running game in place to pick up boot-only changes. */
     public function applyReboot(): void
     {
-        $this->rebootNeeded = false;
         $this->menuOpen = false;
         $this->booted = false;
         $this->attempts = 0;
         $this->status = 'loading';
+        $this->bootedConfig = [];
+        $this->bootedBackend = '';
         $this->guard(fn () => $this->emu()->stop());
         // pump() will re-stage + re-load on the next tick.
     }
@@ -460,30 +533,34 @@ class PlayScreen extends NativeComponent
     }
 
     /** Run a bridge call, turning a thrown EmulatorException into a toast. */
-    private function guard(callable $fn, ?string $ok = null): void
+    private function guard(callable $fn, ?string $ok = null): bool
     {
         try {
             $fn();
             if ($ok !== null) {
                 Dialog::toast($ok);
             }
+
+            return true;
         } catch (EmulatorException $e) {
             Dialog::toast($e->getMessage());
+
+            return false;
         }
     }
 
     public function render(): View
     {
-        $config = SettingsStore::configFor($this->id);
-        $configArray = is_object($config) && method_exists($config, 'toArray')
-            ? $config->toArray()
-            : (array) $config;
+        $pending = $this->menuOpen ? $this->pendingReboot() : [];
 
         return view('play', [
             'groups' => Catalog::groupButtons($this->buttons),
             'toggleLabels' => Catalog::toggles($this->id),
             'controllers' => Emulator::inputDevices(),
-            'configJson' => json_encode($configArray, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}',
+            'pending' => $pending,
+            'configJson' => $this->menuOpen
+                ? (json_encode($this->configArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}')
+                : '{}',
         ]);
     }
 }
