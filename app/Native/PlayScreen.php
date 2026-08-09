@@ -161,12 +161,12 @@ class PlayScreen extends NativeComponent
         $this->volume = (int) $g['volume'];
         $this->crt = (bool) $g['crt'];
         $this->rewindEnabled = (bool) $g['rewind'];
-        $this->accurate = (bool) $g['accurate'];
+        $this->accurate = SettingsStore::accurateFor($this->id);
 
         $s = SettingsStore::system($this->id);
         $this->backend = (string) ($s['backend'] ?? '');
         $this->toggles = [];
-        foreach (Catalog::toggles($this->id) as $field => $label) {
+        foreach (array_keys(Catalog::toggles($this->id)) as $field) {
             $this->toggles[$field] = isset($s[$field])
                 ? (bool) $s[$field]
                 : Catalog::toggleDefault($this->id, $field);
@@ -206,13 +206,9 @@ class PlayScreen extends NativeComponent
         $this->attempts++;
 
         try {
-            $emu = $this->emu()
+            $this->emu()
                 ->loadSystem($this->id, $this->config())
                 ->loadRom($this->rom);
-
-            if ($this->rewindEnabled) {
-                $emu->configure(['rewind' => true, 'rewindBufferSeconds' => 10]);
-            }
 
             $this->booted = true;
             $this->error = '';
@@ -416,7 +412,7 @@ class PlayScreen extends NativeComponent
     public function setAccurate(bool $on): void
     {
         $this->accurate = $on;
-        SettingsStore::setGlobal('accurate', $on);
+        SettingsStore::setSystem($this->id, 'accurate', $on);
         $this->rebootNeeded = true;
     }
 

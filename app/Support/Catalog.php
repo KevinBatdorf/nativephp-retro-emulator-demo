@@ -141,7 +141,9 @@ class Catalog
 
     /**
      * Engines selectable per system: the plugin's bundled set plus the BYO
-     * libretro cores this app ships in resources/emulator-cores.
+     * libretro cores this app ships in resources/emulator-cores. Off-device
+     * fallback only — at runtime Emulator::systems()[…]['backends'] is the
+     * truth (BYO cores appear there once actually present).
      */
     public static function backends(string $system): array
     {
@@ -155,14 +157,23 @@ class Catalog
         };
     }
 
-    /** Per-system boolean toggles beyond the shared config, keyed by config field. */
+    /**
+     * Per-system boolean toggles beyond the shared config, keyed by config
+     * field. `aresOnly` marks toggles the other engines refuse to enable —
+     * ares also silently ignores toggles a system lacks, so this map (not
+     * UNSUPPORTED_OPTION) is what decides which toggles a system shows.
+     *
+     * @return array<string, array{label: string, aresOnly: bool}>
+     */
     public static function toggles(string $system): array
     {
         return match ($system) {
-            'sfc' => ['deepBlackBoost' => 'Deep black boost'],
-            'gb' => [
-                'colorEmulation' => 'Colour emulation',
-                'interframeBlending' => 'Interframe blending',
+            'sfc' => [
+                'deepBlackBoost' => ['label' => 'Deep black boost', 'aresOnly' => true],
+            ],
+            'gb', 'gbc' => [
+                'colorEmulation' => ['label' => 'Colour emulation', 'aresOnly' => false],
+                'interframeBlending' => ['label' => 'Interframe blending', 'aresOnly' => true],
             ],
             default => [],
         };

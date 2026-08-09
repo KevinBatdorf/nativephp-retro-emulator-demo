@@ -248,9 +248,9 @@
                     @if ($toggleLabels !== [])
                         <native:column class="w-full gap-2">
                             <native:text class="text-white text-base font-semibold">{{ strtoupper($id) }} options</native:text>
-                            @foreach ($toggleLabels as $field => $label)
+                            @foreach ($toggleLabels as $field => $meta)
                                 <native:row native:key="{{ $field }}" class="w-full items-center justify-between">
-                                    <native:text class="text-gray-200 text-sm">{{ $label }}</native:text>
+                                    <native:text class="text-gray-200 text-sm">{{ $meta['label'] }}</native:text>
                                     <native:toggle label="" :value="$toggles[$field] ?? false" @change="setToggle('{{ $field }}')" />
                                 </native:row>
                             @endforeach

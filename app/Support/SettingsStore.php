@@ -28,6 +28,8 @@ class SettingsStore
 
     private const SYSTEM_FILE = 'settings-system';
 
+    public const REWIND_BUFFER_SECONDS = 10;
+
     public const GLOBAL_DEFAULTS = [
         'luminance' => 100,
         'saturation' => 100,
@@ -41,15 +43,12 @@ class SettingsStore
         // Capture serializes a full save state every 10 frames for as long as a
         // game runs, so it costs CPU even when nobody rewinds.
         'rewind' => false,
-        // Boot-only renderer preset: SNES/GBA gain dot/cycle accuracy at real
-        // CPU cost; the other systems have one renderer and ignore it.
-        'accurate' => false,
         // Touch-pad feel, as percentages so the overlay's sliders can carry
         // them; the dpad element takes fractions.
         'dpadThreshold' => 33,
-        // Narrows the diagonal so the outgoing direction drops sooner mid-turn.
-        // Raising it also delays the incoming one — same rule governs both.
-        'dpadDiagonalRatio' => 50,
+        // Higher = harder to hit diagonals (cleaner cardinals); 0 = free
+        // diagonals, the dpad element's own default.
+        'dpadDiagonalRatio' => 0,
     ];
 
     public const SYSTEM_DEFAULTS = [
@@ -103,6 +102,30 @@ class SettingsStore
         JsonStore::write(self::SYSTEM_FILE, $all);
     }
 
+    /**
+     * Boot-only renderer preset, stored per system since only SNES/GBA have a
+     * second renderer. Falls back to the legacy global key so an older
+     * on-device settings file keeps its choice.
+     */
+    public static function accurateFor(string $id): bool
+    {
+        $s = JsonStore::read(self::SYSTEM_FILE)[$id] ?? [];
+
+        return (bool) ($s['accurate'] ?? JsonStore::read(self::GLOBAL_FILE)['accurate'] ?? false);
+    }
+
+    /**
+     * The engine a boot of $id will resolve to: explicit per-system choice,
+     * else the app's config preference, else the plugin's ares floor.
+     */
+    public static function effectiveBackend(string $id, array $overrides = []): string
+    {
+        $s = array_merge(self::system($id), $overrides);
+
+        return ($s['backend'] ?? '')
+            ?: (config('retro-emulator.backends')[$id][0] ?? 'ares');
+    }
+
     // ── Config assembly ─────────────────────────────
 
     /**
@@ -119,26 +142,35 @@ class SettingsStore
     {
         $g = self::global();
         $s = array_merge(self::system($id), $overrides);
+        $onAres = self::effectiveBackend($id, $overrides) === 'ares';
 
         $shared = [
-            'luminance' => (int) $g['luminance'],
-            'saturation' => (int) $g['saturation'],
-            'gamma' => (int) $g['gamma'],
-            'overscan' => (bool) $g['overscan'],
+            // Engine-side picture knobs exist only on ares; non-neutral values
+            // make a SameBoy/mGBA/libretro boot throw UNSUPPORTED_OPTION, so
+            // they neutralize here rather than brick the boot.
+            'luminance' => $onAres ? (int) $g['luminance'] : 100,
+            'saturation' => $onAres ? (int) $g['saturation'] : 100,
+            'gamma' => $onAres ? (int) $g['gamma'] : 100,
+            'overscan' => $onAres && (bool) $g['overscan'],
             'volume' => (int) $g['volume'],
             'balance' => (int) $g['balance'],
             'speed' => (float) $g['speed'],
             'rumble' => (bool) $g['rumble'],
+            'rewind' => (bool) $g['rewind'],
+            'rewindBufferSeconds' => $g['rewind'] ? self::REWIND_BUFFER_SECONDS : null,
             'shader' => self::resolveShader($g, $s),
-            'accuracy' => $g['accurate'] ? Accuracy::Accurate : Accuracy::Performance,
             'backend' => ($s['backend'] ?? '') ?: null,
         ];
+
+        // Only SNES and GBA have a second renderer; the key is noise elsewhere.
+        $accuracy = self::accurateFor($id) ? Accuracy::Accurate : Accuracy::Performance;
 
         $region = self::resolveRegion($id, $s);
 
         return match ($id) {
             'sfc' => new SfcConfig(
                 ...$shared,
+                accuracy: $accuracy,
                 region: $region,
                 deepBlackBoost: (bool) ($s['deepBlackBoost'] ?? false),
             ),
@@ -150,7 +182,7 @@ class SettingsStore
             ),
             'fc' => new FcConfig(...$shared, region: $region),
             'md' => new MdConfig(...$shared, region: $region),
-            'gba' => new GbaConfig(...$shared),
+            'gba' => new GbaConfig(...$shared, accuracy: $accuracy),
             default => array_filter(
                 [...$shared, 'region' => $region?->value],
                 fn ($v) => $v !== null,
@@ -190,6 +222,15 @@ class SettingsStore
      */
     public static function crtPreset(): ?string
     {
+        // Memoized — render paths call this and Shaders::in walks recursively.
+        static $scanned = false;
+        static $preset = null;
+
+        if ($scanned) {
+            return $preset;
+        }
+        $scanned = true;
+
         foreach ([
             storage_path('app/shaders'),
             base_path('resources/shaders'),
@@ -201,15 +242,15 @@ class SettingsStore
                 continue;
             }
 
-            foreach ($found as $preset) {
-                if (str_starts_with(basename($preset), 'crt')) {
-                    return $preset;
+            foreach ($found as $candidate) {
+                if (str_starts_with(basename($candidate), 'crt')) {
+                    return $preset = $candidate;
                 }
             }
 
-            return $found[0];
+            return $preset = $found[0];
         }
 
-        return null;
+        return $preset;
     }
 }
