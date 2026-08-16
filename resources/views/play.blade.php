@@ -254,7 +254,11 @@
                                         <native:text class="{{ $row['enabled'] ? 'text-gray-200' : 'text-gray-600' }} text-sm">{{ $row['label'] }}</native:text>
                                         <native:text class="text-gray-500 text-xs">{{ $row['help'] }}{{ $row['note'] !== '' ? ' · '.$row['note'] : '' }}</native:text>
                                     </native:column>
-                                    <native:toggle label="" :value="$row['value']" @change="setBootOption('{{ $field }}')" />
+                                    @if ($row['enabled'])
+                                        <native:toggle label="" :value="$row['value']" @change="setBootOption('{{ $field }}')" />
+                                    @else
+                                        <native:text class="text-gray-600 text-xs">n/a</native:text>
+                                    @endif
                                 </native:row>
                                 @isset ($pending[$field === 'pixelAccuracy' ? 'pixelAccuracy' : $field])
                                     <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
@@ -274,7 +278,11 @@
                                             <native:text class="text-gray-500 text-xs">{{ $row['note'] }}</native:text>
                                         @endif
                                     </native:column>
-                                    <native:toggle label="" :value="$toggles[$field] ?? false" @change="setToggle('{{ $field }}')" />
+                                    @if ($row['enabled'])
+                                        <native:toggle label="" :value="$toggles[$field] ?? false" @change="setToggle('{{ $field }}')" />
+                                    @else
+                                        <native:text class="text-gray-600 text-xs">n/a</native:text>
+                                    @endif
                                 </native:row>
                             @endforeach
                         </native:column>
