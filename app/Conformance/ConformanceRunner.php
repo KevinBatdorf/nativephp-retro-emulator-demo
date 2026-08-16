@@ -368,9 +368,15 @@ class ConformanceRunner
                 ...$surface, 'options' => ['rewind' => true, 'rewindBufferSeconds' => 10],
             ]),
             $this->rewindRoundTripStep($surface),
+            $this->okStep('Rewind jumps instantly while capture is on', 'Emulator.Rewind', [
+                ...$surface, 'seconds' => 2,
+            ]),
             $this->okStep('Configure rewind disables capture', 'Emulator.Configure', [
                 ...$surface, 'options' => ['rewind' => false],
             ]),
+            $this->errorStep('Rewind requires capture enabled', 'Emulator.Rewind', [
+                ...$surface, 'seconds' => 2,
+            ], code: 'REWIND_DISABLED'),
             // Accuracy is boot-only (it picks the renderer at load); status
             // reads back which renderer the boot actually bound.
             $this->errorStep('Configure pixelAccuracy rejected post-boot', 'Emulator.Configure', [

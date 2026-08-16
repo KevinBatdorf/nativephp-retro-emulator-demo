@@ -64,8 +64,6 @@ class PlayScreen extends NativeComponent
     /** Transport action most recently fired, for a one-tick press flash. */
     public string $flash = '';
 
-    public bool $rewinding = false;
-
     /**
      * Whether rewind capture is armed. Applies live; history is empty at the
      * moment it's enabled and fills from there.
@@ -138,9 +136,6 @@ class PlayScreen extends NativeComponent
 
     /** Live speed multiplier (0.25-4.0). */
     public float $speed = 1.0;
-
-    /** Clears the transient rewinding highlight after playback exhausts. */
-    public ?float $rewindFlagUntil = null;
 
     /** Audio bench: engine to force, '' for the app's stored setting. */
     public string $benchEngine = '';
@@ -372,12 +367,6 @@ class PlayScreen extends NativeComponent
             $this->flash = '';
         }
 
-        // Playback self-resumes when the buffer runs dry; only the highlight
-        // needs clearing.
-        if ($this->rewindFlagUntil !== null && microtime(true) >= $this->rewindFlagUntil) {
-            $this->rewindFlagUntil = null;
-            $this->rewinding = false;
-        }
     }
 
     // ── Overlay (transport + settings, game paused) ─────────
@@ -675,24 +664,19 @@ class PlayScreen extends NativeComponent
         }
     }
 
-    /**
-     * One toggle only: the 10 s buffer plays out and auto-resumes; a second
-     * timed toggle would race the auto-exit and re-enter rewind.
-     */
+    /** Instant: one state-load lands ~10 s back; no playback to wait out. */
     public function rewindBack(): void
     {
         if (! $this->rewindEnabled) {
             return;
         }
 
-        if (! $this->guard(fn () => $this->emu()->toggleRewind())) {
+        if (! $this->guard(fn () => $this->emu()->rewind(10))) {
             return;
         }
 
-        $this->rewinding = true;
-        $this->rewindFlagUntil = microtime(true) + 2.5;
         if ($this->menuOpen) {
-            $this->toggleMenu();   // resume so the playback is visible
+            $this->toggleMenu();   // show the earlier frame immediately
         }
     }
 

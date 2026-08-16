@@ -35,7 +35,7 @@
 
     // Transport rows (explicit chunked rows — lazy-grid mislays out in EDGE).
     $transport = [
-        ['label' => '−10s', 'press' => 'rewindBack', 'active' => $rewinding, 'enabled' => $rewindEnabled],
+        ['label' => '−10s', 'press' => 'rewindBack', 'enabled' => $rewindEnabled],
         ['label' => $status === 'paused' ? 'Resume' : 'Pause', 'press' => 'togglePause', 'active' => $status === 'paused'],
         ['label' => 'Screenshot', 'press' => 'screenshot'],
     ];

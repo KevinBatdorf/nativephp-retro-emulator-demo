@@ -124,6 +124,7 @@ class FakeNative
             'Emulator.WriteMemory' => $this->write($payload),
             'Emulator.Configure' => $this->configure($payload),
             'Emulator.ToggleRewind' => $this->toggleRewind(),
+            'Emulator.Rewind' => $this->rewindJump($payload),
             'Emulator.SetShader' => $this->setShader($payload),
             'Emulator.SetRumble' => json_encode([
                 'status' => ($payload['enabled'] ?? false) ? 'enabled' : 'disabled',
@@ -592,6 +593,15 @@ class FakeNative
         return '{}';
     }
 
+    private function rewindJump(array $payload): string
+    {
+        if (! $this->rewindEnabled) {
+            return $this->error('REWIND_DISABLED', 'rewind capture is off');
+        }
+
+        return json_encode(['jumped' => (int) ($payload['seconds'] ?? 10)]);
+    }
+
     private function toggleRewind(): string
     {
         if (! $this->rewindEnabled) {
@@ -697,7 +707,7 @@ it('exercises every bridge function declared in the plugin manifest', function (
     $declared = array_column($manifest['bridge_functions'], 'name');
     $called = array_unique(array_column($native->calls, 'function'));
 
-    expect($declared)->toHaveCount(43)
+    expect($declared)->toHaveCount(44)
         ->and(array_values(array_diff($declared, $called)))->toBe([]);
 });
 
