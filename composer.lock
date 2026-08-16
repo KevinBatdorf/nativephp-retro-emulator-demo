@@ -1337,7 +1337,7 @@
             "dist": {
                 "type": "path",
                 "url": "../nativephp-retro-emulator",
-                "reference": "5bf973a1fddb3bb3c78bd0b1018410e2f662810c"
+                "reference": "b474bc311e37822c3cf8f00775f604620a93521c"
             },
             "require": {
                 "illuminate/events": "^10.0|^11.0|^12.0|^13.0",
@@ -2470,16 +2470,16 @@
         },
         {
             "name": "nativephp/mobile",
-            "version": "4.1.0",
+            "version": "4.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/NativePHP/mobile-air.git",
-                "reference": "7b3882647020c565cf5590e1662586e3472b1ebe"
+                "reference": "bf4fd2a47f7f6b99d661e65ee5f7fddb318e50d1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/NativePHP/mobile-air/zipball/7b3882647020c565cf5590e1662586e3472b1ebe",
-                "reference": "7b3882647020c565cf5590e1662586e3472b1ebe",
+                "url": "https://api.github.com/repos/NativePHP/mobile-air/zipball/bf4fd2a47f7f6b99d661e65ee5f7fddb318e50d1",
+                "reference": "bf4fd2a47f7f6b99d661e65ee5f7fddb318e50d1",
                 "shasum": ""
             },
             "require": {
@@ -2559,9 +2559,9 @@
             ],
             "support": {
                 "issues": "https://github.com/NativePHP/mobile-air/issues",
-                "source": "https://github.com/NativePHP/mobile-air/tree/4.1.0"
+                "source": "https://github.com/NativePHP/mobile-air/tree/4.2.0"
             },
-            "time": "2026-08-07T12:55:28+00:00"
+            "time": "2026-08-14T00:44:18+00:00"
         },
         {
             "name": "nativephp/mobile-ui",
@@ -2569,12 +2569,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/NativePHP/mobile-ui.git",
-                "reference": "bffbe21187a9533867ca4be17580401e29ea3a0a"
+                "reference": "130bdc85dfc2309a833cea4c7c6555f25a93d82a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/NativePHP/mobile-ui/zipball/bffbe21187a9533867ca4be17580401e29ea3a0a",
-                "reference": "bffbe21187a9533867ca4be17580401e29ea3a0a",
+                "url": "https://api.github.com/repos/NativePHP/mobile-ui/zipball/130bdc85dfc2309a833cea4c7c6555f25a93d82a",
+                "reference": "130bdc85dfc2309a833cea4c7c6555f25a93d82a",
                 "shasum": ""
             },
             "require": {
@@ -2634,7 +2634,7 @@
                     "url": "https://nativephp.com/sponsor"
                 }
             ],
-            "time": "2026-08-04T19:33:54+00:00"
+            "time": "2026-08-11T17:08:09+00:00"
         },
         {
             "name": "nesbot/carbon",

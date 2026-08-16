@@ -259,7 +259,7 @@
                             <native:text class="text-white text-base font-semibold">Boot options</native:text>
                             @foreach ($bootOptionRows as $field => $row)
                                 <native:row native:key="boot-{{ $field }}" class="w-full items-center justify-between">
-                                    <native:column class="flex-1 gap-0">
+                                    <native:column class="gap-0">
                                         <native:text class="{{ $row['enabled'] ? 'text-gray-200' : 'text-gray-600' }} text-sm">{{ $row['label'] }}</native:text>
                                         <native:text class="text-gray-500 text-xs">{{ $row['help'] }}{{ $row['note'] !== '' ? ' · '.$row['note'] : '' }}</native:text>
                                     </native:column>
@@ -281,7 +281,7 @@
                             <native:text class="text-white text-base font-semibold">{{ \App\Support\Catalog::shortName($id) }} options</native:text>
                             @foreach ($toggleRows as $field => $row)
                                 <native:row native:key="{{ $field }}" class="w-full items-center justify-between">
-                                    <native:column class="flex-1 gap-0">
+                                    <native:column class="gap-0">
                                         <native:text class="{{ $row['enabled'] ? 'text-gray-200' : 'text-gray-600' }} text-sm">{{ $row['label'] }}</native:text>
                                         @if ($row['note'] !== '')
                                             <native:text class="text-gray-500 text-xs">{{ $row['note'] }}</native:text>
@@ -304,14 +304,14 @@
                         {{-- EDGE toggle labels render near-invisible on dark bg;
                              carry every label as our own text instead. --}}
                         <native:row class="w-full items-center justify-between">
-                            <native:column class="flex-1 gap-0">
+                            <native:column class="gap-0">
                                 <native:text class="text-white text-base font-semibold">CRT shader</native:text>
                                 <native:text class="text-gray-400 text-xs">crt-lottes · applies instantly</native:text>
                             </native:column>
                             <native:toggle label="" :value="$crt" @change="setCrt" />
                         </native:row>
                         <native:row class="w-full items-center justify-between">
-                            <native:column class="flex-1 gap-0">
+                            <native:column class="gap-0">
                                 <native:text class="text-white text-base font-semibold">Rewind</native:text>
                                 <native:text class="text-gray-400 text-xs">Costs CPU while playing · history starts when enabled</native:text>
                             </native:column>
