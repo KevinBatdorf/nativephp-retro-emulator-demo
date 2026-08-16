@@ -35,7 +35,6 @@ class SettingsStore
     public const GLOBAL_DEFAULTS = [
         'luminance' => 100,
         'saturation' => 100,
-        'gamma' => 100,      // percent, like luminance/saturation
         'overscan' => false,
         'volume' => 100,
         'balance' => 0,
@@ -280,7 +279,6 @@ class SettingsStore
             // neutralize here rather than brick the boot.
             'luminance' => $videoOk ? (int) $g['luminance'] : 100,
             'saturation' => $videoOk ? (int) $g['saturation'] : 100,
-            'gamma' => $videoOk ? (int) $g['gamma'] : 100,
             'overscan' => $videoOk && (bool) $g['overscan'],
             'volume' => (int) $g['volume'],
             'balance' => (int) $g['balance'],

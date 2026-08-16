@@ -17,14 +17,14 @@ afterEach(function () {
 
 it('neutralizes ares-only picture values when the engine is not ares', function () {
     SettingsStore::setGlobal('luminance', 80);
-    SettingsStore::setGlobal('gamma', 150);
+    SettingsStore::setGlobal('saturation', 150);
     SettingsStore::setGlobal('overscan', true);
     SettingsStore::setSystem('gb', 'backend', 'sameboy');
 
     $config = SettingsStore::configFor('gb')->toArray();
 
     expect($config['luminance'])->toBe(100)
-        ->and($config['gamma'])->toBe(100)
+        ->and($config['saturation'])->toBe(100)
         ->and($config['overscan'])->toBeFalse();
 });
 

@@ -333,10 +333,6 @@
                                 <native:text class="text-gray-200 text-sm">Saturation — {{ $saturation }}% {{ $saturation === 100 ? '(unchanged)' : '' }}</native:text>
                                 <native:slider class="w-full" min="0" max="100" step="5" native:model.debounce.300ms="saturation" />
                             </native:column>
-                            <native:column class="w-full gap-1">
-                                <native:text class="text-gray-200 text-sm">Gamma — {{ number_format($gamma / 100, 2) }} {{ $gamma === 100 ? '(unchanged)' : '(darker midtones)' }}</native:text>
-                                <native:slider class="w-full" min="100" max="200" step="5" native:model.debounce.300ms="gamma" />
-                            </native:column>
                             <native:row class="w-full items-center justify-between">
                                 <native:text class="text-gray-200 text-sm">Show overscan borders</native:text>
                                 <native:toggle label="" :value="$overscan" @change="setOverscan" />

@@ -100,8 +100,6 @@ class PlayScreen extends NativeComponent
 
     public int $saturation = 100;
 
-    public int $gamma = 100;
-
     public bool $overscan = false;
 
     public int $volume = 100;
@@ -181,7 +179,6 @@ class PlayScreen extends NativeComponent
         $this->dpadDiagonalRatio = (int) $g['dpadDiagonalRatio'];
         $this->luminance = (int) $g['luminance'];
         $this->saturation = (int) $g['saturation'];
-        $this->gamma = (int) $g['gamma'];
         $this->overscan = (bool) $g['overscan'];
         $this->volume = (int) $g['volume'];
         $this->balance = (int) $g['balance'];
@@ -462,7 +459,7 @@ class PlayScreen extends NativeComponent
             $group = match (true) {
                 in_array($key, ['backend', 'region', 'pixelAccuracy', 'rawAudio', 'bootAnimation',
                     'biosPath', 'colorEmulation', 'interframeBlending', 'deepBlackBoost'], true) => 'system',
-                in_array($key, ['luminance', 'saturation', 'gamma', 'overscan', 'colorBleed',
+                in_array($key, ['luminance', 'saturation', 'overscan', 'colorBleed',
                     'shader', 'output', 'fixedScale', 'aspectCorrection'], true) => 'video',
                 in_array($key, ['volume', 'balance'], true) => 'audio',
                 default => 'runtime',
@@ -773,11 +770,6 @@ class PlayScreen extends NativeComponent
         $this->applyVideo('saturation', (int) round((float) $v));
     }
 
-    public function updatedGamma(mixed $v): void
-    {
-        $this->applyVideo('gamma', (int) round((float) $v));
-    }
-
     public function setOverscan(bool $on): void
     {
         $this->applyVideo('overscan', $on);
@@ -946,8 +938,8 @@ class PlayScreen extends NativeComponent
         // Push the fresh defaults to the running core so picture and audio
         // match the sliders immediately; boot-only leftovers (engine, region,
         // accuracy) surface in the reboot diff instead.
-        if ($this->guard(fn () => $this->emu()->setVideo(luminance: 100, saturation: 100, gamma: 100, overscan: false))) {
-            $this->syncBooted('luminance', 'saturation', 'gamma', 'overscan');
+        if ($this->guard(fn () => $this->emu()->setVideo(luminance: 100, saturation: 100, overscan: false))) {
+            $this->syncBooted('luminance', 'saturation', 'overscan');
         }
         if ($this->guard(fn () => $this->emu()->setVolume(100))) {
             $this->syncBooted('volume');
