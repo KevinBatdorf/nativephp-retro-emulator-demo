@@ -170,6 +170,18 @@ it('refuses an engine-gated boot option locally', function () {
     expect(SettingsStore::system('gba'))->not->toHaveKey('accurate');
 });
 
+it('applies a speed choice live with no reboot note', function () {
+    Native::fakeBridge();
+
+    playScreen()
+        ->call('setSpeedChoice', '2')
+        ->assertSet('speed', 2.0)
+        ->assertDontSee('Takes effect on reboot');
+
+    // JSON storage drops the .0; every consumer casts.
+    expect((float) SettingsStore::global()['speed'])->toBe(2.0);
+});
+
 it('rolls save states across three timestamped slots, newest first', function () {
     Native::fakeBridge();
 

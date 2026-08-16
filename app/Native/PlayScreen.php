@@ -64,8 +64,6 @@ class PlayScreen extends NativeComponent
     /** Transport action most recently fired, for a one-tick press flash. */
     public string $flash = '';
 
-    public bool $fastForward = false;
-
     public bool $rewinding = false;
 
     /**
@@ -138,8 +136,8 @@ class PlayScreen extends NativeComponent
     /** Boot-only option values keyed by capability field (pixelAccuracy, rawAudio). */
     public array $bootOpts = [];
 
-    /** Wall-clock deadline for the +10s fast-forward burst; null = idle. */
-    public ?float $ffStopAt = null;
+    /** Live speed multiplier (0.25-4.0). */
+    public float $speed = 1.0;
 
     /** Clears the transient rewinding highlight after playback exhausts. */
     public ?float $rewindFlagUntil = null;
@@ -194,6 +192,7 @@ class PlayScreen extends NativeComponent
         $this->balance = (int) $g['balance'];
         $this->crt = (bool) $g['crt'];
         $this->rewindEnabled = (bool) $g['rewind'];
+        $this->speed = (float) $g['speed'];
         $this->accurate = SettingsStore::accurateFor($this->id);
 
         $s = SettingsStore::system($this->id);
@@ -371,12 +370,6 @@ class PlayScreen extends NativeComponent
     {
         if ($this->flash !== '') {
             $this->flash = '';
-        }
-
-        if ($this->ffStopAt !== null && microtime(true) >= $this->ffStopAt) {
-            $this->ffStopAt = null;
-            $this->fastForward = false;
-            $this->guard(fn () => $this->emu()->fastForward(false));
         }
 
         // Playback self-resumes when the buffer runs dry; only the highlight
@@ -703,18 +696,17 @@ class PlayScreen extends NativeComponent
         }
     }
 
-    /** Fast-forward one burst: 4× for 2.5 s ≈ +10 s of game time. */
-    public function skipAhead(): void
+    /** Live emulation speed (0.25-4.0); no reboot. */
+    public function setSpeedChoice(string $value): void
     {
-        if (! $this->guard(fn () => $this->emu()->fastForward(true))) {
+        $speed = (float) $value;
+        if (! $this->guard(fn () => $this->emu()->setSpeed($speed))) {
             return;
         }
 
-        $this->fastForward = true;
-        $this->ffStopAt = microtime(true) + 2.5;
-        if ($this->menuOpen) {
-            $this->toggleMenu();
-        }
+        $this->speed = $speed;
+        SettingsStore::setGlobal('speed', $speed);
+        $this->syncBooted('speed');
     }
 
     public function screenshot(): void

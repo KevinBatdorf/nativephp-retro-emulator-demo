@@ -35,9 +35,8 @@
 
     // Transport rows (explicit chunked rows — lazy-grid mislays out in EDGE).
     $transport = [
-        ['label' => '⏪ −10s', 'press' => 'rewindBack', 'active' => $rewinding, 'enabled' => $rewindEnabled],
-        ['label' => $status === 'paused' ? '▶ Resume' : 'II Pause', 'press' => 'togglePause', 'active' => $status === 'paused'],
-        ['label' => '+10s ⏩', 'press' => 'skipAhead', 'active' => $fastForward],
+        ['label' => '−10s', 'press' => 'rewindBack', 'active' => $rewinding, 'enabled' => $rewindEnabled],
+        ['label' => $status === 'paused' ? 'Resume' : 'Pause', 'press' => 'togglePause', 'active' => $status === 'paused'],
         ['label' => 'Screenshot', 'press' => 'screenshot'],
     ];
     $tBg = fn ($t) => ! ($t['enabled'] ?? true) ? 'bg-gray-800'
@@ -175,6 +174,19 @@
                         @unless ($rewindEnabled)
                             <native:text class="text-gray-500 text-xs">−10s needs Rewind enabled (All systems, below)</native:text>
                         @endunless
+                    </native:column>
+
+                    <native:column class="w-full gap-2">
+                        <native:text class="text-gray-400 text-xs font-semibold">SPEED</native:text>
+                        <native:row class="w-full gap-2">
+                            @foreach (['0.5', '1', '1.5', '2'] as $choice)
+                                <native:pressable native:key="sp-{{ $choice }}"
+                                    class="flex-1 py-2 rounded-full items-center border border-white/10 {{ (float) $choice === $speed ? 'bg-green-600' : 'bg-gray-800' }}"
+                                    @press="setSpeedChoice('{{ $choice }}')">
+                                    <native:text class="text-white text-sm text-center">{{ $choice }}x</native:text>
+                                </native:pressable>
+                            @endforeach
+                        </native:row>
                     </native:column>
 
                     {{-- ── Save states: one button in, three timestamped slots out. ── --}}
