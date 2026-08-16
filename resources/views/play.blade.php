@@ -195,6 +195,9 @@
                                     @endfor
                                 </native:row>
                             @endforeach
+                            @if ($engineNote !== '')
+                                <native:text class="text-gray-500 text-xs">{{ $engineNote }}</native:text>
+                            @endif
                             @isset ($pending['backend'])
                                 <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
                             @endisset
@@ -245,7 +248,7 @@
                             @foreach ($toggleLabels as $field => $meta)
                                 <native:row native:key="{{ $field }}" class="w-full items-center justify-between">
                                     <native:column class="gap-0">
-                                        <native:text class="text-gray-200 text-sm">{{ $meta['label'] }}</native:text>
+                                        <native:text class="{{ ($meta['enabled'] ?? true) ? 'text-gray-200' : 'text-gray-600' }} text-sm">{{ $meta['label'] }}</native:text>
                                         @if (($meta['note'] ?? '') !== '')
                                             <native:text class="text-gray-500 text-xs">{{ $meta['note'] }}</native:text>
                                         @endif

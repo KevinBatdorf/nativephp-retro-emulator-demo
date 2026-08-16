@@ -518,13 +518,29 @@ class PlayScreen extends NativeComponent
             }
         }
 
-        foreach ($meta as &$entry) {
+        foreach ($meta as $field => &$entry) {
             $entry['note'] = count($entry['engines']) === count($this->systemCaps)
                 ? ''
                 : implode(' / ', $entry['engines']).' engine only';
+            $entry['enabled'] = $this->currentEngineServes($field);
         }
 
         return $meta;
+    }
+
+    /** Engines the config names that this platform cannot offer (iOS: BYO cores). */
+    private function engineNote(): string
+    {
+        $missing = array_diff(
+            config('retro-emulator.backends')[$this->id] ?? [],
+            $this->backendOptions,
+        );
+
+        if ($missing === [] || Platform::current() !== Platform::IOS) {
+            return '';
+        }
+
+        return implode(' / ', $missing).' — libretro cores are Android-only';
     }
 
     public function togglePause(): void
@@ -718,6 +734,24 @@ class PlayScreen extends NativeComponent
         SettingsStore::setSystem($this->id, 'backend', $this->backend);
     }
 
+    /** The engine serving toggles right now: booted, else the boot-pending pick. */
+    private function currentEngine(): string
+    {
+        if ($this->bootedBackend !== '') {
+            return $this->bootedBackend;
+        }
+
+        return $this->backend !== '' ? $this->backend : $this->defaultEngine();
+    }
+
+    /** Unknown capabilities (off-device) fall through to the bridge's own check. */
+    private function currentEngineServes(string $field): bool
+    {
+        $caps = $this->systemCaps[$this->currentEngine()] ?? [];
+
+        return $caps === [] || in_array($field, $caps['toggles'] ?? [], true);
+    }
+
     /** What a boot with no explicit engine choice resolves to. */
     private function defaultEngine(): string
     {
@@ -738,6 +772,16 @@ class PlayScreen extends NativeComponent
 
     public function setToggle(string $field, bool $on): void
     {
+        if ($on && ! $this->currentEngineServes($field)) {
+            $engines = implode(' / ', $this->toggleMeta()[$field]['engines'] ?? []);
+            Dialog::toast(
+                ($this->toggleMeta()[$field]['label'] ?? $field)
+                ." needs the {$engines} engine — running {$this->currentEngine()}",
+            );
+
+            return;
+        }
+
         // Enabling a toggle the engine lacks throws; the guard toast carries
         // the engine's own message and nothing persists, so the next boot
         // stays clean.
@@ -827,6 +871,7 @@ class PlayScreen extends NativeComponent
             'pending' => $pending,
             'regions' => Catalog::regions($this->id),
             'engineSelected' => $this->backend !== '' ? $this->backend : $this->defaultEngine(),
+            'engineNote' => $this->engineNote(),
             'devRows' => $this->menuOpen ? $this->devRows($pending) : [],
             'pictureOk' => $this->systemCaps === []
                 ? ($this->bootedBackend === '' || $this->bootedBackend === 'ares')

@@ -126,6 +126,27 @@ it('offers shipped bring-your-own cores alongside the bridge claimants', functio
     expect(SettingsStore::system('sfc')['backend'])->toBe('');
 });
 
+it('refuses an engine-gated toggle locally instead of surfacing the native error', function () {
+    Native::fakeBridge()->respondTo('Emulator.GetSystems', ['systems' => [[
+        'id' => 'gb', 'name' => 'Game Boy',
+        'supported' => true, 'stable' => true,
+        'backends' => ['ares', 'sameboy'],
+        'capabilities' => [
+            'ares' => ['toggles' => ['interframeBlending'], 'bootOptions' => []],
+            'sameboy' => ['toggles' => ['colorEmulation'], 'bootOptions' => ['rawAudio']],
+        ],
+    ]]]);
+
+    // Booted on ares, which does not serve colorEmulation — SameBoy does.
+    playScreen('gb')
+        ->set('bootedBackend', 'ares')
+        ->call('toggleMenu')
+        ->call('toggleMenu')
+        ->call('setToggle', 'colorEmulation', true);
+
+    expect(SettingsStore::system('gb'))->not->toHaveKey('colorEmulation');
+});
+
 it('reverts a toggle when the engine refuses it', function () {
     Native::fakeBridge()->respondTo('Emulator.SetSystemOptions', [
         'status' => 'error',
