@@ -182,6 +182,21 @@ it('applies a speed choice live with no reboot note', function () {
     expect((float) SettingsStore::global()['speed'])->toBe(2.0);
 });
 
+it('reboots into a picked ROM and ignores cancellations', function () {
+    Native::fakeBridge();
+
+    $screen = playScreen()
+        ->call('onRomPicked', 'play', '/storage/app/roms/sfc/picked.sfc');
+
+    $screen->assertSet('rom', '/storage/app/roms/sfc/picked.sfc')
+        ->assertSet('romName', 'picked.sfc')
+        ->assertSet('booted', false);   // pump reboots with the new ROM
+
+    // A cancelled pick (empty path) changes nothing.
+    $screen->call('onRomPicked', 'play', '')
+        ->assertSet('rom', '/storage/app/roms/sfc/picked.sfc');
+});
+
 it('rolls save states across three timestamped slots, newest first', function () {
     Native::fakeBridge();
 

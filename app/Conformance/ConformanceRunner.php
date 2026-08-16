@@ -368,6 +368,11 @@ class ConformanceRunner
                 ...$surface, 'options' => ['rewind' => true, 'rewindBufferSeconds' => 10],
             ]),
             $this->rewindRoundTripStep($surface),
+            // A destination-less PickRom errors before any picker UI opens —
+            // the only way to exercise the function headlessly.
+            $this->errorStep('PickRom requires a destination', 'Emulator.PickRom', [
+                ...$surface,
+            ], code: 'INVALID_PARAMETERS'),
             $this->okStep('Rewind jumps instantly while capture is on', 'Emulator.Rewind', [
                 ...$surface, 'seconds' => 2,
             ]),

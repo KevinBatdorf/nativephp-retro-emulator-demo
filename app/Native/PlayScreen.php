@@ -12,7 +12,9 @@ use KevinBatdorf\RetroEmulator\Config\SystemConfig;
 use KevinBatdorf\RetroEmulator\Device;
 use KevinBatdorf\RetroEmulator\Emulator as EmulatorHandle;
 use KevinBatdorf\RetroEmulator\EmulatorException;
+use KevinBatdorf\RetroEmulator\Events\EmulatorError;
 use KevinBatdorf\RetroEmulator\Events\EmulatorStarted;
+use KevinBatdorf\RetroEmulator\Events\RomPicked;
 use KevinBatdorf\RetroEmulator\Facades\Emulator;
 use Native\Mobile\Attributes\On;
 use Native\Mobile\Attributes\Poll;
@@ -633,6 +635,39 @@ class PlayScreen extends NativeComponent
             $this->guard(fn () => $this->emu()->pause());
             $this->status = 'paused';
         }
+    }
+
+    /** OS picker; RomPicked carries the copied path, a wrong pick toasts INVALID_ROM. */
+    public function pickRom(): void
+    {
+        $this->guard(fn () => $this->emu()->pickRom(
+            storage_path('app/roms/'.$this->id),
+            BundledRoms::EXTENSIONS[$this->id] ?? [],
+        ));
+    }
+
+    #[On(RomPicked::class)]
+    public function onRomPicked(string $surface = '', string $path = ''): void
+    {
+        if ($surface !== 'play' || $path === '') {
+            return;
+        }
+
+        $this->rom = $path;
+        $this->romName = basename($path);
+        $this->saves = SettingsStore::savesFor($this->id, $this->romName);
+        $this->applyReboot();
+    }
+
+    /** Operational failures (bad pick, failed save) arrive as events, not throws. */
+    #[On(EmulatorError::class)]
+    public function onEmulatorError(string $surface = '', string $code = '', string $message = ''): void
+    {
+        if ($surface !== 'play' || $message === '') {
+            return;
+        }
+
+        Dialog::toast($message);
     }
 
     /** One save slot per press, rolling across three named per-ROM slots. */

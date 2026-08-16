@@ -43,7 +43,7 @@ class BundledRoms
     }
 
     /** Per-system ROM extensions a dropped-in file may use. */
-    private const EXTENSIONS = [
+    public const EXTENSIONS = [
         'fc' => ['nes'],
         'sfc' => ['sfc', 'smc'],
         'gb' => ['gb'],

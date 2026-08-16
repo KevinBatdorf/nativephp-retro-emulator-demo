@@ -189,6 +189,14 @@
                         </native:row>
                     </native:column>
 
+                    <native:column class="w-full gap-2">
+                        <native:text class="text-gray-400 text-xs font-semibold">GAME</native:text>
+                        <native:pressable class="w-full py-3 rounded-xl items-center bg-gray-700" @press="pickRom">
+                            <native:text class="{{ $lbl }}">Load ROM…</native:text>
+                        </native:pressable>
+                        <native:text class="text-gray-500 text-xs">Pick a {{ implode(' / ', array_map(fn ($e) => '.'.$e, \App\Support\BundledRoms::EXTENSIONS[$id] ?? [])) }} file — anything else fails to load</native:text>
+                    </native:column>
+
                     {{-- ── Save states: one button in, three timestamped slots out. ── --}}
                     @if ($gates['saves'])
                         <native:column class="w-full gap-2">

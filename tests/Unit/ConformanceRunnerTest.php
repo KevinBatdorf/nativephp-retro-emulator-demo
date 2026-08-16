@@ -124,6 +124,9 @@ class FakeNative
             'Emulator.WriteMemory' => $this->write($payload),
             'Emulator.Configure' => $this->configure($payload),
             'Emulator.ToggleRewind' => $this->toggleRewind(),
+            'Emulator.PickRom' => isset($payload['destination'])
+                ? json_encode(['status' => 'picking'])
+                : $this->error('INVALID_PARAMETERS', 'destination directory is required'),
             'Emulator.Rewind' => $this->rewindJump($payload),
             'Emulator.SetShader' => $this->setShader($payload),
             'Emulator.SetRumble' => json_encode([
@@ -707,7 +710,7 @@ it('exercises every bridge function declared in the plugin manifest', function (
     $declared = array_column($manifest['bridge_functions'], 'name');
     $called = array_unique(array_column($native->calls, 'function'));
 
-    expect($declared)->toHaveCount(44)
+    expect($declared)->toHaveCount(45)
         ->and(array_values(array_diff($declared, $called)))->toBe([]);
 });
 
