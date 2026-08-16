@@ -182,6 +182,27 @@ it('applies a speed choice live with no reboot note', function () {
     expect((float) SettingsStore::global()['speed'])->toBe(2.0);
 });
 
+it('unpacks a picked zip and boots the largest entry', function () {
+    Native::fakeBridge();
+
+    $dir = sys_get_temp_dir().'/rom-zip-'.uniqid();
+    mkdir($dir, 0777, true);
+    $zip = new ZipArchive;
+    $zip->open($dir.'/game.zip', ZipArchive::CREATE);
+    $zip->addFromString('readme.txt', 'small');
+    $zip->addFromString('game.nes', str_repeat('R', 512));
+    $zip->close();
+
+    playScreen('fc')
+        ->call('onRomPicked', 'play', $dir.'/game.zip')
+        ->assertSet('rom', $dir.'/game.nes')
+        ->assertSet('romName', 'game.nes')
+        ->assertSet('booted', false);
+
+    expect(file_exists($dir.'/game.nes'))->toBeTrue()
+        ->and(file_exists($dir.'/game.zip'))->toBeFalse();
+});
+
 it('reboots into a picked ROM and ignores cancellations', function () {
     Native::fakeBridge();
 

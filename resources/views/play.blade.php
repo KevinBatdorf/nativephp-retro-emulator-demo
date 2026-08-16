@@ -194,7 +194,7 @@
                         <native:pressable class="w-full py-3 rounded-xl items-center bg-gray-700" @press="pickRom">
                             <native:text class="{{ $lbl }}">Load ROM…</native:text>
                         </native:pressable>
-                        <native:text class="text-gray-500 text-xs">Pick a {{ implode(' / ', array_map(fn ($e) => '.'.$e, \App\Support\BundledRoms::EXTENSIONS[$id] ?? [])) }} file — anything else fails to load</native:text>
+                        <native:text class="text-gray-500 text-xs">Pick a ROM for this system — zips are unpacked, a wrong file fails to load</native:text>
                     </native:column>
 
                     {{-- ── Save states: one button in, three timestamped slots out. ── --}}

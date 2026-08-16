@@ -637,12 +637,11 @@ class PlayScreen extends NativeComponent
         }
     }
 
-    /** OS picker; RomPicked carries the copied path, a wrong pick toasts INVALID_ROM. */
+    /** OS picker, unfiltered — a wrong file fails loudly at load instead. */
     public function pickRom(): void
     {
         $this->guard(fn () => $this->emu()->pickRom(
             storage_path('app/roms/'.$this->id),
-            BundledRoms::EXTENSIONS[$this->id] ?? [],
         ));
     }
 
@@ -653,10 +652,59 @@ class PlayScreen extends NativeComponent
             return;
         }
 
+        if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'zip') {
+            $path = $this->extractRomZip($path);
+            if ($path === null) {
+                return;
+            }
+        }
+
         $this->rom = $path;
         $this->romName = basename($path);
         $this->saves = SettingsStore::savesFor($this->id, $this->romName);
         $this->applyReboot();
+    }
+
+    /**
+     * Cores read raw ROMs, so a picked .zip is extracted here: the largest
+     * entry wins (ROM sets ship one game plus text files), the zip is
+     * removed. Null (with a toast) when nothing could be extracted.
+     */
+    private function extractRomZip(string $zipPath): ?string
+    {
+        $zip = new \ZipArchive;
+        if ($zip->open($zipPath) !== true) {
+            Dialog::toast('Could not open the zip');
+
+            return null;
+        }
+
+        $best = null;
+        $bestSize = -1;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $stat = $zip->statIndex($i);
+            if ($stat === false || str_ends_with($stat['name'], '/')) {
+                continue;
+            }
+            if ($stat['size'] > $bestSize) {
+                $best = $stat['name'];
+                $bestSize = $stat['size'];
+            }
+        }
+
+        if ($best === null) {
+            $zip->close();
+            Dialog::toast('The zip has no files in it');
+
+            return null;
+        }
+
+        $dest = dirname($zipPath).'/'.basename($best);
+        file_put_contents($dest, $zip->getFromName($best));
+        $zip->close();
+        unlink($zipPath);
+
+        return $dest;
     }
 
     /** Operational failures (bad pick, failed save) arrive as events, not throws. */
