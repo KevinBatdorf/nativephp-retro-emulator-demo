@@ -495,7 +495,7 @@ class FakeNative
 
         return $this->percentError($options, 'luminance', 0, 100)
             ?? $this->percentError($options, 'saturation', 0, 100)
-            ?? $this->percentError($options, 'gamma', 50, 200)
+            ?? $this->percentError($options, 'gamma', 100, 200)
             ?? '{}';
     }
 

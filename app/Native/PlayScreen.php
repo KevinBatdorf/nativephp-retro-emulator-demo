@@ -131,6 +131,9 @@ class PlayScreen extends NativeComponent
     /** Engine-declared option schema (libretro cores); [] for bundled engines. */
     public array $engineOpts = [];
 
+    /** The ADVANCED core-options section, collapsed each menu open. */
+    public bool $advancedOpen = false;
+
     /** Newest-first save states for this system+ROM: [['slot','at'], …] max 3. */
     public array $saves = [];
 
@@ -374,10 +377,16 @@ class PlayScreen extends NativeComponent
 
     // ── Overlay (transport + settings, game paused) ─────────
 
+    public function toggleAdvanced(): void
+    {
+        $this->advancedOpen = ! $this->advancedOpen;
+    }
+
     /** Toggle the overlay; pause while open, resume when closed. */
     public function toggleMenu(): void
     {
         $this->menuOpen = ! $this->menuOpen;
+        $this->advancedOpen = false;
 
         if ($this->menuOpen) {
             $this->refreshEngineData();
