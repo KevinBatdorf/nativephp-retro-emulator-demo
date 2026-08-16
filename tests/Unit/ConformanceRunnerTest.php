@@ -93,6 +93,9 @@ class FakeNative
             'Emulator.GetStatus' => $this->getStatus(),
             'Emulator.GetRegion' => json_encode(['region' => 'NTSC']),
             'Emulator.GetInputDevices' => json_encode(['devices' => []]),
+            'Emulator.WindowMetrics' => json_encode([
+                'width' => 874, 'height' => 402, 'top' => 0, 'bottom' => 21, 'left' => 59, 'right' => 59,
+            ]),
             'Emulator.GetEngineOptions' => json_encode(['options' => []]),
             'Emulator.GetPressedButtons' => $this->getPressedButtons($payload),
             'Emulator.LoadSystem' => $this->loadSystem($payload),
@@ -710,7 +713,7 @@ it('exercises every bridge function declared in the plugin manifest', function (
     $declared = array_column($manifest['bridge_functions'], 'name');
     $called = array_unique(array_column($native->calls, 'function'));
 
-    expect($declared)->toHaveCount(45)
+    expect($declared)->toHaveCount(46)
         ->and(array_values(array_diff($declared, $called)))->toBe([]);
 });
 

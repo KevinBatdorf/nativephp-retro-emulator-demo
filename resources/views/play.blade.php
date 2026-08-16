@@ -53,12 +53,13 @@
 <native:stack class="flex-1 w-full h-full bg-black">
     <native:emulator name="play" input-capture="global" class="w-full h-full" />
 
-    {{-- pt-8 clears the iPhone notch / Dynamic Island (Android is immersive). --}}
     <native:column class="w-full h-full justify-between">
         <native:column class="w-full gap-2">
-            {{-- px-5: buttons flush with the screen edge sit in the rounded
+            {{-- safe-area-top clears the island in portrait (0 in landscape);
+                 immersive Android reports 0, so android:pt-8 supplies the gap.
+                 px-5: buttons flush with the screen edge sit in the rounded
                  corners / rotated-island shadow and miss taps. --}}
-            <native:row class="w-full px-5 pt-8 pb-1 items-center justify-between">
+            <native:row class="w-full px-5 safe-area-top pt-2 android:pt-8 pb-1 items-center justify-between">
                 <native:button label="Back" @press="leave" />
                 @if ($error !== '')
                     <native:text class="text-red-400 text-sm">⚠ {{ $error }}</native:text>
@@ -87,20 +88,18 @@
         </native:column>
 
         <native:column class="w-full gap-2">
-        <native:row class="w-full px-5 pb-6 items-end justify-between">
+        {{-- Per-side padding tracks the live horizontal safe-area (the island
+             sits mid-edge in landscape): portrait hugs the edges, landscape
+             clears the island, and rotation re-insets via WindowMetricsChanged.
+             Row padding, not margins on the pad — EDGE margins don't move
+             native surface elements. --}}
+        <native:row class="w-full pl-[{{ max(20, $safeLeft) }}] pr-[{{ max(20, $safeRight) }}] pb-6 items-end justify-between">
             {{-- One input area, not four buttons: the plugin's element resolves
                  the finger's position natively, so diagonals work and sliding
                  off the pad keeps walking. No PHP runs per press. --}}
-            {{-- Spacer columns, not margins: EDGE margin utilities don't move
-                 native surface elements. w-9 + the row's px-5 ≈ the iPhone's
-                 59pt landscape safe-area, so the clusters clear the island. --}}
-            <native:row class="items-end">
-                <native:column class="w-9" />
-                <native:dpad surface="play" class="w-32 h-32"
-                    :threshold="$dpadThreshold" :diagonal-ratio="$dpadDiagonalRatio" />
-            </native:row>
+            <native:dpad surface="play" class="w-32 h-32"
+                :threshold="$dpadThreshold" :diagonal-ratio="$dpadDiagonalRatio" />
 
-            <native:row class="items-end">
             <native:column class="items-center gap-1">
                 @foreach ($faceRows as $row)
                     <native:row class="gap-1 items-center">
@@ -116,8 +115,6 @@
                     </native:row>
                 @endforeach
             </native:column>
-                <native:column class="w-9" />
-            </native:row>
         </native:row>
 
         {{-- Select/Start under the game's letterbox — a full-width centered
@@ -140,7 +137,7 @@
          background (EDGE lazy-grid mislays out, so rows are explicit). --}}
     @if ($menuOpen)
         <native:column class="w-full h-full bg-gray-950">
-            <native:row class="w-full px-5 pt-8 pb-2 items-center justify-between">
+            <native:row class="w-full px-5 safe-area-top pt-2 android:pt-8 pb-2 items-center justify-between">
                 <native:text class="text-white text-lg font-semibold">Menu</native:text>
                 <native:button label="✕ Resume" @press="toggleMenu" />
             </native:row>

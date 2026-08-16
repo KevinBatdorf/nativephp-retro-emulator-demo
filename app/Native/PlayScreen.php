@@ -16,6 +16,7 @@ use KevinBatdorf\RetroEmulator\EmulatorException;
 use KevinBatdorf\RetroEmulator\Events\EmulatorError;
 use KevinBatdorf\RetroEmulator\Events\EmulatorStarted;
 use KevinBatdorf\RetroEmulator\Events\RomPicked;
+use KevinBatdorf\RetroEmulator\Events\WindowMetricsChanged;
 use KevinBatdorf\RetroEmulator\Facades\Emulator;
 use Native\Mobile\Attributes\On;
 use Native\Mobile\Attributes\Poll;
@@ -141,6 +142,11 @@ class PlayScreen extends NativeComponent
     /** Audio bench: each engine's raw sound instead of the plugin default. */
     public bool $benchRaw = false;
 
+    /** Horizontal safe-area insets in dp — nonzero only beside the island in landscape. */
+    public int $safeLeft = 0;
+
+    public int $safeRight = 0;
+
     public function navTitle(): string
     {
         return $this->romName !== '' ? $this->romName : 'Play';
@@ -151,6 +157,10 @@ class PlayScreen extends NativeComponent
         // Immersive here too — booting straight to /play (start-url) skips
         // HomeScreen::mount(), so without this the status bar/notch clips the top bar.
         Fullscreen::enter();
+
+        $metrics = Emulator::windowMetrics();
+        $this->safeLeft = $metrics['left'];
+        $this->safeRight = $metrics['right'];
 
         $this->id = (string) $this->param('id');
         $this->rom = (string) $this->data('rom');
@@ -319,6 +329,19 @@ class PlayScreen extends NativeComponent
      * explicit connectDevice is needed. Falls back to the static per-system
      * set if the port read is empty or hiccups, so controls always render.
      */
+    #[On(WindowMetricsChanged::class)]
+    public function onWindowMetricsChanged(
+        int $width = 0,
+        int $height = 0,
+        int $top = 0,
+        int $bottom = 0,
+        int $left = 0,
+        int $right = 0,
+    ): void {
+        $this->safeLeft = $left;
+        $this->safeRight = $right;
+    }
+
     #[On(EmulatorStarted::class)]
     public function onStarted(string $surface = '', string $system = '', string $romPath = ''): void
     {

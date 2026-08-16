@@ -6,13 +6,16 @@
      them. PHP only hears about direction changes, never frames. --}}
 <native:stack class="flex-1 w-full h-full bg-gray-950">
     <native:column class="w-full h-full">
-        {{-- mt-24 clears the header, so translate 0 still shows the ball. --}}
-        <native:column class="w-8 h-8 rounded-full bg-red-500 ml-6 mt-24"
+        {{-- mt-32 clears the header at its island-iPhone tallest (~105pt),
+             so translate 0 still shows the ball. --}}
+        <native:column class="w-8 h-8 rounded-full bg-red-500 ml-6 mt-32"
             :translate-x="$ballX" :translate-y="$ballY" />
     </native:column>
 
     <native:column class="w-full h-full">
-        <native:row class="w-full px-4 pt-8 pb-1 items-center justify-between">
+        {{-- safe-area-top clears the island; immersive Android reports 0
+             inset, so android:pt-8 supplies the gap there. --}}
+        <native:row class="w-full px-4 safe-area-top pt-2 android:pt-8 pb-1 items-center justify-between">
             <native:button label="Back" @press="leave" />
             <native:text class="text-white text-lg font-semibold">D-pad demo</native:text>
             <native:text class="text-gray-400 text-xs w-24 text-right">{{ $heldDirections ?: '—' }}</native:text>
@@ -34,7 +37,7 @@
                                         :pan-x="$ballX" :pan-y="$ballY"
                                         {{-- Negative max = window extent minus the ball's size and offsets. --}}
                                         pan-x-min="0" pan-x-max="-56"
-                                        pan-y-min="0" pan-y-max="-128"
+                                        pan-y-min="0" pan-y-max="-160"
                                         :threshold="$attrs['threshold'] ?? null"
                                         :diagonal-ratio="$attrs['diagonalRatio'] ?? null"
                                         :thickness="$attrs['thickness'] ?? null"

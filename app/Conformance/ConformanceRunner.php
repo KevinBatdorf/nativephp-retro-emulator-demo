@@ -534,6 +534,11 @@ class ConformanceRunner
                 fn (?array $r) => is_array($r['devices'] ?? null)
                     ? null
                     : 'expected a devices array, got '.json_encode($r)),
+            $this->callStep('WindowMetrics reports window size', 'Emulator.WindowMetrics', $surface,
+                // Insets may legitimately be zero; only the size proves a window.
+                fn (?array $r) => (int) ($r['width'] ?? 0) > 0 && (int) ($r['height'] ?? 0) > 0
+                    ? null
+                    : 'expected nonzero width/height, got '.json_encode($r)),
             $this->callStep('GetEngineOptions lists engine-declared options', 'Emulator.GetEngineOptions', $surface,
                 // Empty is a valid answer — the built-in engine declares none.
                 fn (?array $r) => is_array($r['options'] ?? null)
