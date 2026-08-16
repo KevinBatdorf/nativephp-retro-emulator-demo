@@ -155,10 +155,10 @@
             @endif
 
             <native:scroll-view class="flex-1 w-full">
-                <native:column class="w-full px-5 pb-10 gap-5">
+                <native:column class="w-full px-5 pb-10 gap-4">
                     {{-- Transport — explicit pairs, uniform pill styling. --}}
                     <native:column class="w-full gap-2">
-                        <native:text class="text-white text-base font-semibold">Playback</native:text>
+                        <native:text class="text-gray-400 text-xs font-semibold">PLAYBACK</native:text>
                         @foreach (array_chunk($transport, 2) as $pairRow)
                             <native:row class="w-full gap-2">
                                 @foreach ($pairRow as $t)
@@ -173,96 +173,75 @@
                         @endforeach
                     </native:column>
 
-                    {{-- Shader — the headline visual feature. One global CRT
-                         preset (crt-lottes) for the demo, so it's a toggle. --}}
-                    <native:column class="w-full gap-2">
-                        <native:text class="text-white text-base font-semibold">CRT shader</native:text>
-                        {{-- EDGE toggle labels render near-invisible on dark bg;
-                             carry every label as our own white text instead. --}}
-                        <native:row class="w-full items-center justify-between">
-                            <native:text class="text-gray-200 text-sm">crt-lottes — applies to every system</native:text>
-                            <native:toggle label="" :value="$crt" @change="setCrt" />
-                        </native:row>
-                    </native:column>
+                    {{-- ── System scope: everything here affects only this console. ── --}}
+                    <native:text class="text-gray-400 text-xs font-semibold pt-2">THIS SYSTEM — {{ strtoupper(\App\Support\Catalog::shortName($id)) }}</native:text>
 
-                    {{-- Rewind costs CPU continuously while a game runs, so it
-                         ships off and says so. --}}
-                    <native:column class="w-full gap-2">
-                        <native:text class="text-white text-base font-semibold">Rewind</native:text>
-                        <native:row class="w-full items-center justify-between">
-                            <native:text class="text-gray-200 text-sm">Capture history — costs CPU while playing</native:text>
-                            <native:toggle label="" :value="$rewindEnabled" @change="setRewind" />
-                        </native:row>
-                    </native:column>
-
-                    <native:column class="w-full gap-2">
-                        <native:text class="text-white text-base font-semibold">Accurate rendering</native:text>
-                        <native:row class="w-full items-center justify-between">
-                            <native:text class="text-gray-200 text-sm">Dot/cycle renderer (SNES, GBA) — costs CPU</native:text>
-                            <native:toggle label="" :value="$accurate" @change="setAccurate" />
-                        </native:row>
-                        @isset ($pending['pixelAccuracy'])
-                            <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
-                        @endisset
-                    </native:column>
-
-                    <native:column class="w-full gap-2">
+                    <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
                         <native:text class="text-white text-base font-semibold">Engine</native:text>
-                        <native:row class="w-full items-center justify-between">
-                            <native:text class="text-gray-200 text-sm">{{ $backend === '' ? 'App default' : $backend }}</native:text>
-                            <native:button label="Switch" @press="cycleBackend" />
-                        </native:row>
-                        @isset ($pending['backend'])
-                            <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
-                        @endisset
+                        @if ($benchEngine !== '')
+                            <native:text class="text-gray-400 text-sm">Forced to {{ $benchEngine }} by the audio bench for this boot.</native:text>
+                        @else
+                            @foreach (array_chunk($backendOptions, 3) as $chipRow)
+                                <native:row class="w-full gap-2">
+                                    @foreach ($chipRow as $engine)
+                                        <native:pressable native:key="be-{{ $engine }}"
+                                            class="flex-1 py-2 rounded-full items-center border border-white/10 {{ $engineSelected === $engine ? 'bg-green-600' : 'bg-gray-800' }}"
+                                            @press="selectBackend('{{ $engine }}')">
+                                            <native:text class="text-white text-sm text-center">{{ $engine }}</native:text>
+                                        </native:pressable>
+                                    @endforeach
+                                    @for ($i = count($chipRow); $i < 3; $i++)
+                                        <native:column class="flex-1" />
+                                    @endfor
+                                </native:row>
+                            @endforeach
+                            @isset ($pending['backend'])
+                                <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
+                            @endisset
+                        @endif
                     </native:column>
 
-                    {{-- Touch pad feel. Sliders carry percentages; the element
-                         takes fractions of the pad's half-extent. --}}
-                    <native:column class="w-full gap-1">
-                        <native:text class="text-white text-base font-semibold">Touch pad</native:text>
-                        <native:column class="w-full">
-                            <native:text class="text-gray-200 text-sm">Engage threshold — {{ $dpadThreshold }}%</native:text>
-                            <native:slider class="w-full" min="5" max="70" step="1" :value="$dpadThreshold" @change="setDpadThreshold" />
+                    @if ($showAccuracy)
+                        <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
+                            <native:row class="w-full items-center justify-between">
+                                <native:column class="gap-0">
+                                    <native:text class="text-white text-base font-semibold">Accurate rendering</native:text>
+                                    <native:text class="text-gray-400 text-xs">Dot/cycle renderer — costs CPU{{ $accuracyNote !== '' ? ' · '.$accuracyNote : '' }}</native:text>
+                                </native:column>
+                                <native:toggle label="" :value="$accurate" @change="setAccurate" />
+                            </native:row>
+                            @isset ($pending['pixelAccuracy'])
+                                <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
+                            @endisset
                         </native:column>
-                        <native:column class="w-full">
-                            <native:text class="text-gray-200 text-sm">Diagonal bias — {{ $dpadDiagonalRatio }}%</native:text>
-                            <native:slider class="w-full" min="0" max="95" step="5" :value="$dpadDiagonalRatio" @change="setDpadDiagonalRatio" />
-                        </native:column>
-                    </native:column>
+                    @endif
 
-                    {{-- Picture — applies live on the running surface. --}}
-                    <native:column class="w-full gap-3">
-                        <native:text class="text-white text-base font-semibold">Picture</native:text>
-                        <native:column class="w-full gap-1">
-                            <native:text class="text-gray-200 text-sm">Luminance — {{ $luminance }}</native:text>
-                            <native:slider class="w-full" min="0" max="100" step="5" :value="$luminance" @change="setLuminance" />
+                    @if ($regions !== [])
+                        <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
+                            <native:text class="text-white text-base font-semibold">Region</native:text>
+                            @foreach (array_chunk([['', $status === 'running' && $region !== '' ? "Auto ({$region})" : 'Auto'], ...array_map(fn ($r) => [$r, $r], $regions)], 3) as $chipRow)
+                                <native:row class="w-full gap-2">
+                                    @foreach ($chipRow as [$value, $label])
+                                        <native:pressable native:key="rg-{{ $value === '' ? 'auto' : $value }}"
+                                            class="flex-1 py-2 rounded-full items-center border border-white/10 {{ $regionChoice === $value ? 'bg-green-600' : 'bg-gray-800' }}"
+                                            @press="selectRegion('{{ $value }}')">
+                                            <native:text class="text-white text-sm text-center">{{ $label }}</native:text>
+                                        </native:pressable>
+                                    @endforeach
+                                    @for ($i = count($chipRow); $i < 3; $i++)
+                                        <native:column class="flex-1" />
+                                    @endfor
+                                </native:row>
+                            @endforeach
+                            @isset ($pending['region'])
+                                <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
+                            @endisset
                         </native:column>
-                        <native:column class="w-full gap-1">
-                            <native:text class="text-gray-200 text-sm">Saturation — {{ $saturation }}</native:text>
-                            <native:slider class="w-full" min="0" max="100" step="5" :value="$saturation" @change="setSaturation" />
-                        </native:column>
-                        <native:column class="w-full gap-1">
-                            <native:text class="text-gray-200 text-sm">Gamma — {{ $gamma }}</native:text>
-                            <native:slider class="w-full" min="50" max="200" step="5" :value="$gamma" @change="setGamma" />
-                        </native:column>
-                        <native:row class="w-full items-center justify-between">
-                            <native:text class="text-gray-200 text-sm">Show overscan borders</native:text>
-                            <native:toggle label="" :value="$overscan" @change="setOverscan" />
-                        </native:row>
-                    </native:column>
+                    @endif
 
-                    {{-- Audio. --}}
-                    <native:column class="w-full gap-1">
-                        <native:text class="text-white text-base font-semibold">Audio</native:text>
-                        <native:text class="text-gray-200 text-sm">Volume — {{ $volume }}</native:text>
-                        <native:slider class="w-full" min="0" max="100" step="5" :value="$volume" @change="setVolume" />
-                    </native:column>
-
-                    {{-- Per-system options that visibly change the image. --}}
                     @if ($toggleLabels !== [])
-                        <native:column class="w-full gap-2">
-                            <native:text class="text-white text-base font-semibold">{{ strtoupper($id) }} options</native:text>
+                        <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
+                            <native:text class="text-white text-base font-semibold">{{ \App\Support\Catalog::shortName($id) }} options</native:text>
                             @foreach ($toggleLabels as $field => $meta)
                                 <native:row native:key="{{ $field }}" class="w-full items-center justify-between">
                                     <native:column class="gap-0">
@@ -277,8 +256,88 @@
                         </native:column>
                     @endif
 
+                    {{-- ── Global scope: shared by every console. ── --}}
+                    <native:text class="text-gray-400 text-xs font-semibold pt-2">ALL SYSTEMS</native:text>
+
+                    <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
+                        {{-- EDGE toggle labels render near-invisible on dark bg;
+                             carry every label as our own text instead. --}}
+                        <native:row class="w-full items-center justify-between">
+                            <native:column class="gap-0">
+                                <native:text class="text-white text-base font-semibold">CRT shader</native:text>
+                                <native:text class="text-gray-400 text-xs">crt-lottes · applies instantly</native:text>
+                            </native:column>
+                            <native:toggle label="" :value="$crt" @change="setCrt" />
+                        </native:row>
+                        <native:row class="w-full items-center justify-between">
+                            <native:column class="gap-0">
+                                <native:text class="text-white text-base font-semibold">Rewind</native:text>
+                                <native:text class="text-gray-400 text-xs">Costs CPU while playing · history starts when enabled</native:text>
+                            </native:column>
+                            <native:toggle label="" :value="$rewindEnabled" @change="setRewind" />
+                        </native:row>
+                    </native:column>
+
+                    <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-3">
+                        <native:column class="gap-0">
+                            <native:text class="text-white text-base font-semibold">Picture</native:text>
+                            <native:text class="text-gray-400 text-xs">All systems · ares engine only · applies instantly</native:text>
+                        </native:column>
+                        @if ($pictureOk)
+                            <native:column class="w-full gap-1">
+                                <native:text class="text-gray-200 text-sm">Luminance — {{ $luminance }}% {{ $luminance === 100 ? '(unchanged)' : '' }}</native:text>
+                                <native:slider class="w-full" min="0" max="100" step="5" native:model.debounce.300ms="luminance" />
+                            </native:column>
+                            <native:column class="w-full gap-1">
+                                <native:text class="text-gray-200 text-sm">Saturation — {{ $saturation }}% {{ $saturation === 100 ? '(unchanged)' : '' }}</native:text>
+                                <native:slider class="w-full" min="0" max="100" step="5" native:model.debounce.300ms="saturation" />
+                            </native:column>
+                            <native:column class="w-full gap-1">
+                                <native:text class="text-gray-200 text-sm">Gamma — {{ $gamma }}% {{ $gamma === 100 ? '(unchanged)' : ($gamma > 100 ? '(darker midtones)' : '(brighter midtones)') }}</native:text>
+                                <native:slider class="w-full" min="50" max="200" step="5" native:model.debounce.300ms="gamma" />
+                            </native:column>
+                            <native:row class="w-full items-center justify-between">
+                                <native:text class="text-gray-200 text-sm">Show overscan borders</native:text>
+                                <native:toggle label="" :value="$overscan" @change="setOverscan" />
+                            </native:row>
+                        @else
+                            <native:text class="text-gray-400 text-sm">Picture controls need the ares engine — current: {{ $bootedBackend !== '' ? $bootedBackend : 'not booted' }}.</native:text>
+                        @endif
+                    </native:column>
+
+                    <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-3">
+                        <native:text class="text-white text-base font-semibold">Audio</native:text>
+                        <native:column class="w-full gap-1">
+                            <native:text class="text-gray-200 text-sm">Volume — {{ $volume }}%</native:text>
+                            <native:slider class="w-full" min="0" max="100" step="5" native:model.debounce.300ms="volume" />
+                        </native:column>
+                        <native:column class="w-full gap-1">
+                            <native:text class="text-gray-200 text-sm">Balance — {{ $balance === 0 ? 'centred' : ($balance < 0 ? abs($balance).'% left' : $balance.'% right') }}</native:text>
+                            <native:slider class="w-full" min="-100" max="100" step="10" native:model.debounce.300ms="balance" />
+                        </native:column>
+                    </native:column>
+
+                    {{-- The on-screen d-pad element's feel. Sliders carry
+                         percentages; the element takes fractions. --}}
+                    <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-3">
+                        <native:column class="gap-0">
+                            <native:text class="text-white text-base font-semibold">On-screen D-pad</native:text>
+                            <native:text class="text-gray-400 text-xs">Applies instantly</native:text>
+                        </native:column>
+                        <native:column class="w-full gap-1">
+                            <native:text class="text-gray-200 text-sm">Dead zone — {{ $dpadThreshold }}%</native:text>
+                            <native:text class="text-gray-500 text-xs">How far you push before a direction registers</native:text>
+                            <native:slider class="w-full" min="5" max="90" step="1" native:model.debounce.300ms="dpadThreshold" />
+                        </native:column>
+                        <native:column class="w-full gap-1">
+                            <native:text class="text-gray-200 text-sm">Cardinal snap — {{ $dpadDiagonalRatio }}%</native:text>
+                            <native:text class="text-gray-500 text-xs">Higher keeps ↑ ↓ ← → clean · 0% = free diagonals</native:text>
+                            <native:slider class="w-full" min="0" max="95" step="5" native:model.debounce.300ms="dpadDiagonalRatio" />
+                        </native:column>
+                    </native:column>
+
                     {{-- Which hardware controllers the OS reports as paired. --}}
-                    <native:column class="w-full gap-2">
+                    <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
                         <native:text class="text-white text-base font-semibold">Controllers</native:text>
                         @forelse ($controllers as $controller)
                             <native:text native:key="{{ $loop->index }}" class="text-gray-200 text-sm">🎮 {{ $controller }}</native:text>
@@ -289,14 +348,39 @@
 
                     <native:button label="Reset to defaults" color="#f87171" @press="resetSettings" />
 
-                    {{-- Under the hood: the exact config handed to Emulator::loadSystem. --}}
-                    <native:column class="w-full gap-1">
-                        <native:text class="text-white text-base font-semibold">Config (dev view)</native:text>
-                        <native:text class="text-gray-400 text-xs">The exact array Emulator::loadSystem() receives.</native:text>
-                        <native:column class="w-full p-3 rounded-lg bg-gray-900">
-                            <native:text class="text-green-300 text-xs">{{ $configJson }}</native:text>
+                    {{-- ── Dev: what we asked for vs what's actually running. ── --}}
+                    <native:text class="text-gray-400 text-xs font-semibold pt-2">DEV</native:text>
+
+                    <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
+                        <native:column class="gap-0">
+                            <native:text class="text-white text-base font-semibold">Config</native:text>
+                            <native:text class="text-gray-400 text-xs">Booted values · pending reboot changes in amber</native:text>
                         </native:column>
+                        @foreach ($devRows as $group => $rows)
+                            <native:text native:key="dg-{{ $group }}" class="text-gray-500 text-xs font-semibold pt-1">{{ strtoupper($group) }}</native:text>
+                            @foreach ($rows as $row)
+                                <native:row native:key="dv-{{ $row['key'] }}" class="w-full justify-between">
+                                    <native:text class="text-gray-300 text-xs">{{ $row['key'] }}</native:text>
+                                    <native:text class="{{ $row['pending'] ? 'text-amber-300' : 'text-green-300' }} text-xs">{{ $row['display'] }}</native:text>
+                                </native:row>
+                            @endforeach
+                        @endforeach
                     </native:column>
+
+                    @if ($devState !== [])
+                        <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
+                            <native:column class="gap-0">
+                                <native:text class="text-white text-base font-semibold">State</native:text>
+                                <native:text class="text-gray-400 text-xs">Read back from the running core when the menu opened</native:text>
+                            </native:column>
+                            @foreach ($devState as $key => $value)
+                                <native:row native:key="ds-{{ $key }}" class="w-full justify-between">
+                                    <native:text class="text-gray-300 text-xs">{{ $key }}</native:text>
+                                    <native:text class="text-teal-300 text-xs">{{ $value }}</native:text>
+                                </native:row>
+                            @endforeach
+                        </native:column>
+                    @endif
                 </native:column>
             </native:scroll-view>
         </native:column>

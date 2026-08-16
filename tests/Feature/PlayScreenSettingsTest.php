@@ -24,19 +24,30 @@ function playScreen(string $id = 'sfc')
 
 it('shows the reboot note and pinned bar when the engine changes', function () {
     playScreen()
-        ->call('cycleBackend')
+        ->call('selectBackend', 'ares')
         ->assertSee('Takes effect on reboot')
         ->assertSee('change applies on reboot');
 });
 
 it('clears the reboot note when the change is reverted', function () {
-    // sfc cycles '' → ares → snes9x → '' — a full loop restores the store.
+    // snes9x is sfc's app default, so re-picking it stores '' and the wire
+    // config matches a default boot again.
     playScreen()
-        ->call('cycleBackend')
-        ->call('cycleBackend')
-        ->call('cycleBackend')
+        ->call('selectBackend', 'ares')
+        ->call('selectBackend', 'snes9x')
         ->assertDontSee('Takes effect on reboot')
         ->assertDontSee('applies on reboot');
+
+    expect(SettingsStore::system('sfc')['backend'])->toBe('');
+});
+
+it('flags a region change as boot-pending and clears it on revert', function () {
+    $screen = playScreen()
+        ->call('selectRegion', 'PAL')
+        ->assertSee('Takes effect on reboot');
+
+    $screen->call('selectRegion', '')
+        ->assertDontSee('Takes effect on reboot');
 });
 
 it('applies rewind live without a reboot note when the bridge accepts it', function () {
@@ -95,6 +106,26 @@ it('applies a system toggle live and persists it', function () {
     expect(SettingsStore::system('gbc')['colorEmulation'])->toBeTrue();
 });
 
+it('offers shipped bring-your-own cores alongside the bridge claimants', function () {
+    // The bridge lists claimants only; a BYO core claims nothing until booted.
+    Native::fakeBridge()->respondTo('Emulator.GetSystems', ['systems' => [[
+        'id' => 'sfc', 'name' => 'SNES / Super Famicom',
+        'supported' => true, 'stable' => true,
+        'backends' => ['ares'],
+        'capabilities' => ['ares' => ['videoSettings' => true, 'toggles' => ['deepBlackBoost'], 'bootOptions' => ['pixelAccuracy']]],
+    ]]]);
+
+    // set('menuOpen') skips refreshEngineData; only a real toggle cycle runs it.
+    playScreen()
+        ->call('toggleMenu')
+        ->call('toggleMenu')
+        ->assertSet('backendOptions', ['ares', 'snes9x'])
+        ->call('selectBackend', 'snes9x');
+
+    // snes9x resolves as the default, so picking it stores ''.
+    expect(SettingsStore::system('sfc')['backend'])->toBe('');
+});
+
 it('reverts a toggle when the engine refuses it', function () {
     Native::fakeBridge()->respondTo('Emulator.SetSystemOptions', [
         'status' => 'error',
@@ -113,7 +144,7 @@ it('reset pushes defaults live and leaves no reboot residue for live keys', func
     Native::fakeBridge();
 
     $screen = playScreen();
-    $screen->call('setLuminance', 60);
+    $screen->call('updatedLuminance', 60);
     expect(SettingsStore::global()['luminance'])->toBe(60);
 
     $screen->call('resetSettings')

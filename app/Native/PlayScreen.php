@@ -19,6 +19,7 @@ use Native\Mobile\Attributes\Poll;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Transition;
 use Native\Mobile\Facades\Dialog;
+use Native\Mobile\Platform;
 
 /**
  * Play. Full-height emulator surface with a translucent control
@@ -77,6 +78,9 @@ class PlayScreen extends NativeComponent
     /** Engine serving this system: '' = default, else a name or BYO core. */
     public string $backend = '';
 
+    /** Stored region preference: '' = auto (resolved from the ROM). */
+    public string $regionChoice = '';
+
     /** The one overlay: transport + settings. Game pauses while it's open. */
     public bool $menuOpen = false;
 
@@ -104,6 +108,8 @@ class PlayScreen extends NativeComponent
 
     public int $volume = 100;
 
+    public int $balance = 0;
+
     public bool $crt = false;
 
     /** Per-system toggles (deepBlackBoost, colour emulation, …) → bool. */
@@ -120,6 +126,9 @@ class PlayScreen extends NativeComponent
 
     /** Per-engine capability objects for this system, cached on menu open. */
     public array $systemCaps = [];
+
+    /** Runtime introspection for the dev view, cached when the menu opens. */
+    public array $devState = [];
 
     /** Audio bench: engine to force, '' for the app's stored setting. */
     public string $benchEngine = '';
@@ -168,12 +177,14 @@ class PlayScreen extends NativeComponent
         $this->gamma = (int) $g['gamma'];
         $this->overscan = (bool) $g['overscan'];
         $this->volume = (int) $g['volume'];
+        $this->balance = (int) $g['balance'];
         $this->crt = (bool) $g['crt'];
         $this->rewindEnabled = (bool) $g['rewind'];
         $this->accurate = SettingsStore::accurateFor($this->id);
 
         $s = SettingsStore::system($this->id);
         $this->backend = (string) ($s['backend'] ?? '');
+        $this->regionChoice = (string) ($s['region'] ?? '');
         $this->toggles = [];
         foreach (array_keys(Catalog::toggles($this->id)) as $field) {
             $this->toggles[$field] = isset($s[$field])
@@ -372,12 +383,17 @@ class PlayScreen extends NativeComponent
      */
     private function refreshEngineData(): void
     {
+        $this->refreshDevState();
+
         foreach (Emulator::systems() as $entry) {
             if (($entry['id'] ?? '') !== $this->id) {
                 continue;
             }
 
-            $this->backendOptions = $entry['backends'] ?? [];
+            $this->backendOptions = array_values(array_unique([
+                ...($entry['backends'] ?? []),
+                ...$this->shippedCores(),
+            ]));
             $this->systemCaps = $entry['capabilities'] ?? [];
 
             // Capabilities can surface toggles the mount-time hydrate didn't
@@ -392,6 +408,93 @@ class PlayScreen extends NativeComponent
 
         $this->backendOptions = Catalog::backends($this->id);
         $this->systemCaps = [];
+    }
+
+    /**
+     * Configured engines whose .so this app packages — the bridge never
+     * lists a BYO core until a boot adopts it. Android only: iOS links
+     * its engines statically.
+     *
+     * @return list<string>
+     */
+    private function shippedCores(): array
+    {
+        if (Platform::current() === Platform::IOS) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            config('retro-emulator.backends')[$this->id] ?? [],
+            fn (string $engine) => (glob(resource_path("emulator-cores/android/*/{$engine}_libretro*.so")) ?: []) !== [],
+        ));
+    }
+
+    /**
+     * What the core is actually doing, as opposed to what the config asked
+     * for — accuracy() reads back the renderer the boot really bound, and
+     * region() the region the ROM resolved to.
+     */
+    private function refreshDevState(): void
+    {
+        try {
+            $emu = $this->emu();
+            $devices = array_values(array_filter(array_column($emu->ports(), 'device')));
+
+            $this->devState = [
+                'status' => $emu->status()->value,
+                'engine' => $this->bootedBackend !== '' ? $this->bootedBackend : '(not booted)',
+                'accuracy bound' => $emu->accuracy()?->value ?? '(single renderer)',
+                'region resolved' => $emu->region() ?: '(none)',
+                'devices' => $devices === [] ? '(none)' : implode(', ', $devices),
+            ];
+        } catch (\Throwable) {
+            $this->devState = [];
+        }
+    }
+
+    /**
+     * Config rows for the dev view, grouped and diff-annotated: pending keys
+     * render "from → to" so the dump never claims a value the running core
+     * doesn't have.
+     *
+     * @return array<string, list<array{key: string, display: string, pending: bool}>>
+     */
+    private function devRows(array $pending): array
+    {
+        $next = $this->configArray();
+        $rows = ['system' => [], 'video' => [], 'audio' => [], 'runtime' => []];
+
+        foreach (array_unique([...array_keys($this->bootedConfig), ...array_keys($next)]) as $key) {
+            $group = match (true) {
+                in_array($key, ['backend', 'region', 'pixelAccuracy', 'rawAudio', 'bootAnimation',
+                    'biosPath', 'colorEmulation', 'interframeBlending', 'deepBlackBoost'], true) => 'system',
+                in_array($key, ['luminance', 'saturation', 'gamma', 'overscan', 'colorBleed',
+                    'shader', 'output', 'fixedScale', 'aspectCorrection'], true) => 'video',
+                in_array($key, ['volume', 'balance'], true) => 'audio',
+                default => 'runtime',
+            };
+
+            $rows[$group][] = [
+                'key' => $key,
+                'display' => isset($pending[$key])
+                    ? $this->devValue($pending[$key]['from']).' → '.$this->devValue($pending[$key]['to'])
+                    : $this->devValue($this->bootedConfig[$key] ?? $next[$key] ?? null),
+                'pending' => isset($pending[$key]),
+            ];
+        }
+
+        return array_filter($rows);
+    }
+
+    private function devValue(mixed $v): string
+    {
+        return match (true) {
+            $v === null => 'default',
+            is_bool($v) => $v ? 'true' : 'false',
+            is_string($v) && str_contains($v, '/') => basename($v),
+            is_scalar($v) => (string) $v,
+            default => json_encode($v) ?: '?',
+        };
     }
 
     /**
@@ -477,33 +580,35 @@ class PlayScreen extends NativeComponent
     }
 
     // ── Settings (live picture/audio apply immediately) ─────
+    // Sliders bind via native:model.debounce — the updated* hooks fire once
+    // per gesture with the property already set.
 
     // The pad reads these as props; nothing to push to the core.
-    public function setDpadThreshold(float $v): void
+    public function updatedDpadThreshold(mixed $v): void
     {
-        $this->dpadThreshold = (int) round($v);
+        $this->dpadThreshold = (int) round((float) $v);
         SettingsStore::setGlobal('dpadThreshold', $this->dpadThreshold);
     }
 
-    public function setDpadDiagonalRatio(float $v): void
+    public function updatedDpadDiagonalRatio(mixed $v): void
     {
-        $this->dpadDiagonalRatio = (int) round($v);
+        $this->dpadDiagonalRatio = (int) round((float) $v);
         SettingsStore::setGlobal('dpadDiagonalRatio', $this->dpadDiagonalRatio);
     }
 
-    public function setLuminance(float $v): void
+    public function updatedLuminance(mixed $v): void
     {
-        $this->applyVideo('luminance', (int) round($v));
+        $this->applyVideo('luminance', (int) round((float) $v));
     }
 
-    public function setSaturation(float $v): void
+    public function updatedSaturation(mixed $v): void
     {
-        $this->applyVideo('saturation', (int) round($v));
+        $this->applyVideo('saturation', (int) round((float) $v));
     }
 
-    public function setGamma(float $v): void
+    public function updatedGamma(mixed $v): void
     {
-        $this->applyVideo('gamma', (int) round($v));
+        $this->applyVideo('gamma', (int) round((float) $v));
     }
 
     public function setOverscan(bool $on): void
@@ -518,7 +623,14 @@ class PlayScreen extends NativeComponent
      */
     private function applyVideo(string $key, int|bool $value): void
     {
+        $previous = $this->{$key};
+
         if (! $this->guard(fn () => $this->emu()->setVideo(...[$key => $value]))) {
+            // The model sync may have written the new value already.
+            $this->{$key} = $previous === $value
+                ? SettingsStore::global()[$key]
+                : $previous;
+
             return;
         }
 
@@ -527,17 +639,34 @@ class PlayScreen extends NativeComponent
         $this->syncBooted($key);
     }
 
-    public function setVolume(float $v): void
+    public function updatedVolume(mixed $v): void
     {
-        $volume = (int) round($v);
+        $volume = (int) round((float) $v);
 
         if (! $this->guard(fn () => $this->emu()->setVolume($volume))) {
+            $this->volume = (int) SettingsStore::global()['volume'];
+
             return;
         }
 
         $this->volume = $volume;
         SettingsStore::setGlobal('volume', $volume);
         $this->syncBooted('volume');
+    }
+
+    public function updatedBalance(mixed $v): void
+    {
+        $balance = (int) round((float) $v);
+
+        if (! $this->guard(fn () => $this->emu()->setBalance($balance))) {
+            $this->balance = (int) SettingsStore::global()['balance'];
+
+            return;
+        }
+
+        $this->balance = $balance;
+        SettingsStore::setGlobal('balance', $balance);
+        $this->syncBooted('balance');
     }
 
     public function setCrt(bool $on): void
@@ -581,12 +710,30 @@ class PlayScreen extends NativeComponent
         SettingsStore::setSystem($this->id, 'accurate', $on);
     }
 
-    public function cycleBackend(): void
+    public function selectBackend(string $name): void
     {
-        $options = ['', ...Catalog::backends($this->id)];
-        $at = array_search($this->backend, $options, true);
-        $this->backend = $options[($at === false ? 1 : $at + 1) % count($options)];
+        // Picking the engine the app would resolve anyway stores '' so the
+        // wire config (and the reboot diff) stays identical to a default boot.
+        $this->backend = $name === $this->defaultEngine() ? '' : $name;
         SettingsStore::setSystem($this->id, 'backend', $this->backend);
+    }
+
+    /** What a boot with no explicit engine choice resolves to. */
+    private function defaultEngine(): string
+    {
+        foreach (config('retro-emulator.backends')[$this->id] ?? [] as $engine) {
+            if ($this->backendOptions === [] || in_array($engine, $this->backendOptions, true)) {
+                return $engine;
+            }
+        }
+
+        return 'ares';
+    }
+
+    public function selectRegion(string $value): void
+    {
+        $this->regionChoice = $value;
+        SettingsStore::setSystem($this->id, 'region', $value);
     }
 
     public function setToggle(string $field, bool $on): void
@@ -678,9 +825,44 @@ class PlayScreen extends NativeComponent
             'toggleLabels' => $this->toggleMeta(),
             'controllers' => Emulator::inputDevices(),
             'pending' => $pending,
-            'configJson' => $this->menuOpen
-                ? (json_encode($this->configArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}')
-                : '{}',
+            'regions' => Catalog::regions($this->id),
+            'engineSelected' => $this->backend !== '' ? $this->backend : $this->defaultEngine(),
+            'devRows' => $this->menuOpen ? $this->devRows($pending) : [],
+            'pictureOk' => $this->systemCaps === []
+                ? ($this->bootedBackend === '' || $this->bootedBackend === 'ares')
+                : (bool) ($this->systemCaps[$this->bootedBackend]['videoSettings'] ?? false),
+            ...$this->accuracyMeta(),
         ]);
+    }
+
+    /**
+     * Renderer-accuracy visibility from capabilities: shown when any of the
+     * system's engines declares the pixelAccuracy boot option, noted when
+     * not all of them do. sfc/gba is the off-device fallback.
+     *
+     * @return array{showAccuracy: bool, accuracyNote: string}
+     */
+    private function accuracyMeta(): array
+    {
+        if ($this->systemCaps === []) {
+            return [
+                'showAccuracy' => in_array($this->id, ['sfc', 'gba'], true),
+                'accuracyNote' => 'ares engine only',
+            ];
+        }
+
+        $engines = [];
+        foreach ($this->systemCaps as $engine => $caps) {
+            if (in_array('pixelAccuracy', $caps['bootOptions'] ?? [], true)) {
+                $engines[] = $engine;
+            }
+        }
+
+        return [
+            'showAccuracy' => $engines !== [],
+            'accuracyNote' => count($engines) === count($this->systemCaps)
+                ? ''
+                : implode(' / ', $engines).' engine only',
+        ];
     }
 }
