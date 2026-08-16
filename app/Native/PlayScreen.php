@@ -128,12 +128,6 @@ class PlayScreen extends NativeComponent
     /** Runtime introspection for the dev view, cached when the menu opens. */
     public array $devState = [];
 
-    /** Engine-declared option schema (libretro cores); [] for bundled engines. */
-    public array $engineOpts = [];
-
-    /** The ADVANCED core-options section, collapsed each menu open. */
-    public bool $advancedOpen = false;
-
     /** Newest-first save states for this system+ROM: [['slot','at'], …] max 3. */
     public array $saves = [];
 
@@ -377,16 +371,10 @@ class PlayScreen extends NativeComponent
 
     // ── Overlay (transport + settings, game paused) ─────────
 
-    public function toggleAdvanced(): void
-    {
-        $this->advancedOpen = ! $this->advancedOpen;
-    }
-
     /** Toggle the overlay; pause while open, resume when closed. */
     public function toggleMenu(): void
     {
         $this->menuOpen = ! $this->menuOpen;
-        $this->advancedOpen = false;
 
         if ($this->menuOpen) {
             $this->refreshEngineData();
@@ -420,7 +408,6 @@ class PlayScreen extends NativeComponent
 
             $this->backendOptions = SettingsStore::availableBackends($this->id);
             $this->systemCaps = $entry['capabilities'] ?? [];
-            $this->engineOpts = $this->readEngineOptions();
 
             // Capabilities can surface toggles the mount-time hydrate didn't
             // know (GBA's ares-only pair); pull their stored values in.
@@ -502,20 +489,6 @@ class PlayScreen extends NativeComponent
             is_scalar($v) => (string) $v,
             default => json_encode($v) ?: '?',
         };
-    }
-
-    /** Bridge round-trips guarded: off-device or a dead call renders no section. */
-    private function readEngineOptions(): array
-    {
-        try {
-            return array_map(fn ($option) => [
-                'key' => (string) ($option['key'] ?? ''),
-                'choices' => array_values((array) ($option['choices'] ?? [])),
-                'current' => (string) ($option['current'] ?? ''),
-            ], $this->emu()->engineOptions());
-        } catch (\Throwable) {
-            return [];
-        }
     }
 
     /** The engine whose declared capabilities the menu renders: booted truth, else the boot-pending pick. */
@@ -926,20 +899,6 @@ class PlayScreen extends NativeComponent
         $this->setBootOption('pixelAccuracy', $on);
     }
 
-    /** Apply one engine-declared option (libretro cores) to the running core. */
-    public function setEngineOption(string $key, string $value): void
-    {
-        if (! $this->guard(fn () => $this->emu()->configure(['engineOptions' => [$key => $value]]))) {
-            return;
-        }
-
-        foreach ($this->engineOpts as &$option) {
-            if ($option['key'] === $key) {
-                $option['current'] = $value;
-            }
-        }
-    }
-
     public function selectBackend(string $name): void
     {
         // Picking the engine the app would resolve anyway stores '' so the
@@ -1053,7 +1012,6 @@ class PlayScreen extends NativeComponent
             'toggleRows' => $this->toggleRows(),
             'bootOptionRows' => $this->bootOptionRows(),
             'engineChips' => $this->engineChips(),
-            'engineOpts' => $this->menuOpen ? $this->engineOpts : [],
             'gates' => $this->featureGates(),
             'controllers' => Emulator::inputDevices(),
             'pending' => $pending,

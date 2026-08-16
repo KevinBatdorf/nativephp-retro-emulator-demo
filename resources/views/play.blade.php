@@ -334,7 +334,7 @@
                                 <native:slider class="w-full" min="0" max="100" step="5" native:model.debounce.300ms="saturation" />
                             </native:column>
                             <native:column class="w-full gap-1">
-                                <native:text class="text-gray-200 text-sm">Gamma — {{ $gamma }}% {{ $gamma === 100 ? '(unchanged)' : '(darker midtones)' }}</native:text>
+                                <native:text class="text-gray-200 text-sm">Gamma — {{ number_format($gamma / 100, 2) }} {{ $gamma === 100 ? '(unchanged)' : '(darker midtones)' }}</native:text>
                                 <native:slider class="w-full" min="100" max="200" step="5" native:model.debounce.300ms="gamma" />
                             </native:column>
                             <native:row class="w-full items-center justify-between">
@@ -390,38 +390,6 @@
                     <native:button label="Reset to defaults" color="#f87171" @press="resetSettings" />
 
                     {{-- ── Dev: what we asked for vs what's actually running. ── --}}
-                    {{-- Engine-declared option schemas run long (snes9x ships ~30),
-                         so they collapse by default. --}}
-                    @if ($engineOpts !== [])
-                        <native:pressable class="w-full py-2" @press="toggleAdvanced">
-                            <native:text class="text-gray-400 text-xs font-semibold">ADVANCED — {{ $engineSelected }} core options ({{ $advancedOpen ? 'hide' : 'show' }})</native:text>
-                        </native:pressable>
-                        @if ($advancedOpen)
-                        <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-3">
-                            <native:text class="text-gray-400 text-xs">Declared by the core · apply live</native:text>
-                            @foreach ($engineOpts as $option)
-                                <native:column native:key="eo-{{ $option['key'] }}" class="w-full gap-1">
-                                    <native:text class="text-gray-200 text-sm">{{ $option['key'] }}</native:text>
-                                    @foreach (array_chunk($option['choices'], 3) as $chipRow)
-                                        <native:row class="w-full gap-2">
-                                            @foreach ($chipRow as $choice)
-                                                <native:pressable native:key="eo-{{ $option['key'] }}-{{ $choice }}"
-                                                    class="flex-1 py-1 rounded-full items-center border border-white/10 {{ $option['current'] === $choice ? 'bg-green-600' : 'bg-gray-800' }}"
-                                                    @press="setEngineOption('{{ $option['key'] }}', '{{ $choice }}')">
-                                                    <native:text class="text-white text-xs text-center">{{ $choice }}</native:text>
-                                                </native:pressable>
-                                            @endforeach
-                                            @for ($i = count($chipRow); $i < 3; $i++)
-                                                <native:column class="flex-1" />
-                                            @endfor
-                                        </native:row>
-                                    @endforeach
-                                </native:column>
-                            @endforeach
-                        </native:column>
-                        @endif
-                    @endif
-
                     <native:text class="text-gray-400 text-xs font-semibold pt-2">DEV</native:text>
 
                     <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
