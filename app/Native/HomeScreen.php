@@ -9,8 +9,8 @@ use Native\Mobile\Edge\NativeComponent;
 
 /**
  * Home. A grid of the consoles this build actually compiled
- * (Emulator::systems() where supported), tapping through to each system's ROM
- * picker. Bottom bar carries global Settings.
+ * (Emulator::systems() where supported); a tap boots the system's bundled
+ * homebrew on the play screen. Settings live in the play overlay's menu.
  */
 class HomeScreen extends NativeComponent
 {

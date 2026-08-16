@@ -142,8 +142,8 @@ class Catalog
     /**
      * Engines selectable per system: the plugin's bundled set plus the BYO
      * libretro cores this app ships in resources/emulator-cores. Off-device
-     * fallback only — at runtime Emulator::systems()[…]['backends'] is the
-     * truth (BYO cores appear there once actually present).
+     * fallback only — on-device PlayScreen merges the bridge's claimant list
+     * with the shipped-core scan, because the bridge never lists BYO cores.
      */
     public static function backends(string $system): array
     {

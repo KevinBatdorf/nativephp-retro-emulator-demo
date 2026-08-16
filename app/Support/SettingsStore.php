@@ -178,9 +178,8 @@ class SettingsStore
      * Build the plugin SystemConfig for a boot, merging global AV/presentation
      * settings with the per-system scope. The concrete subclass is chosen per
      * system so its extra toggles (SFC deepBlackBoost, GB colour emulation) are
-     * carried through; the four compiled systems all have one.
-     */
-    /**
+     * carried through; every compiled system has one.
+     *
      * @param  array<string, mixed>  $overrides  A/B bench values that win over
      *                                           stored settings for one boot.
      */
