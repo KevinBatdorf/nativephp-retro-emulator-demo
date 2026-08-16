@@ -5,6 +5,7 @@ namespace App\Native;
 use App\Support\BundledRoms;
 use App\Support\Catalog;
 use App\Support\SettingsStore;
+use App\Support\Zip;
 use Illuminate\View\View;
 use KevinBatdorf\Fullscreen\Facades\Fullscreen;
 use KevinBatdorf\RetroEmulator\Config\Config;
@@ -672,36 +673,12 @@ class PlayScreen extends NativeComponent
      */
     private function extractRomZip(string $zipPath): ?string
     {
-        $zip = new \ZipArchive;
-        if ($zip->open($zipPath) !== true) {
-            Dialog::toast('Could not open the zip');
+        $dest = Zip::extractLargest($zipPath);
+        if ($dest === null) {
+            Dialog::toast('Could not extract a ROM from the zip');
 
             return null;
         }
-
-        $best = null;
-        $bestSize = -1;
-        for ($i = 0; $i < $zip->numFiles; $i++) {
-            $stat = $zip->statIndex($i);
-            if ($stat === false || str_ends_with($stat['name'], '/')) {
-                continue;
-            }
-            if ($stat['size'] > $bestSize) {
-                $best = $stat['name'];
-                $bestSize = $stat['size'];
-            }
-        }
-
-        if ($best === null) {
-            $zip->close();
-            Dialog::toast('The zip has no files in it');
-
-            return null;
-        }
-
-        $dest = dirname($zipPath).'/'.basename($best);
-        file_put_contents($dest, $zip->getFromName($best));
-        $zip->close();
         unlink($zipPath);
 
         return $dest;
