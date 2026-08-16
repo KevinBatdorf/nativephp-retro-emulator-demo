@@ -33,17 +33,18 @@
     $lbl = 'text-white text-sm text-center font-semibold';
     $face = "w-11 h-11 rounded-full items-center justify-center $ring";
 
-    // Transport rows (chunked into pairs — lazy-grid mislays out in EDGE).
+    // Transport rows (explicit chunked rows — lazy-grid mislays out in EDGE).
     $transport = [
+        ['label' => '⏪ −10s', 'press' => 'rewindBack', 'active' => $rewinding, 'enabled' => $rewindEnabled],
         ['label' => $status === 'paused' ? '▶ Resume' : 'II Pause', 'press' => 'togglePause', 'active' => $status === 'paused'],
-        ['label' => 'Save state', 'press' => 'saveState'],
-        ['label' => 'Load state', 'press' => 'loadState'],
-        ['label' => 'Undo load', 'press' => 'undo'],
-        ['label' => $rewindEnabled ? ($rewinding ? 'Rewind ✓' : 'Rewind') : 'Rewind (off)', 'press' => 'rewind', 'active' => $rewinding],
-        ['label' => $fastForward ? 'Fast-fwd ✓' : 'Fast-fwd', 'press' => 'toggleFastForward', 'active' => $fastForward],
+        ['label' => '+10s ⏩', 'press' => 'skipAhead', 'active' => $fastForward],
         ['label' => 'Screenshot', 'press' => 'screenshot'],
     ];
-    $tBg = fn ($t) => ($t['active'] ?? false) ? 'bg-green-600' : 'bg-gray-700';
+    $tBg = fn ($t) => ! ($t['enabled'] ?? true) ? 'bg-gray-800'
+        : (($t['active'] ?? false) ? 'bg-green-600' : 'bg-gray-700');
+    $tLbl = fn ($t) => ! ($t['enabled'] ?? true)
+        ? 'text-gray-600 text-sm text-center font-semibold'
+        : 'text-white text-sm text-center font-semibold';
 @endphp
 
 {{-- The game fills the screen; controls hug the corners like a real handheld.
@@ -159,19 +160,38 @@
                     {{-- Transport — explicit pairs, uniform pill styling. --}}
                     <native:column class="w-full gap-2">
                         <native:text class="text-gray-400 text-xs font-semibold">PLAYBACK</native:text>
-                        @foreach (array_chunk($transport, 2) as $pairRow)
+                        @foreach (array_chunk($transport, 3) as $chipRow)
                             <native:row class="w-full gap-2">
-                                @foreach ($pairRow as $t)
+                                @foreach ($chipRow as $t)
                                     <native:pressable native:key="{{ $t['press'] }}" class="flex-1 py-3 rounded-xl items-center {{ $tBg($t) }}" @press="{{ $t['press'] }}">
-                                        <native:text class="{{ $lbl }}">{{ $t['label'] }}</native:text>
+                                        <native:text class="{{ $tLbl($t) }}">{{ $t['label'] }}</native:text>
                                     </native:pressable>
                                 @endforeach
-                                @if (count($pairRow) === 1)
+                                @for ($i = count($chipRow); $i < 3; $i++)
                                     <native:column class="flex-1" />
-                                @endif
+                                @endfor
                             </native:row>
                         @endforeach
+                        @unless ($rewindEnabled)
+                            <native:text class="text-gray-500 text-xs">−10s needs Rewind enabled (All systems, below)</native:text>
+                        @endunless
                     </native:column>
+
+                    {{-- ── Save states: one button in, three timestamped slots out. ── --}}
+                    @if ($gates['saves'])
+                        <native:column class="w-full gap-2">
+                            <native:text class="text-gray-400 text-xs font-semibold">SAVE STATES</native:text>
+                            <native:pressable class="w-full py-3 rounded-xl items-center bg-gray-700" @press="saveStateNow">
+                                <native:text class="{{ $lbl }}">Save current state</native:text>
+                            </native:pressable>
+                            @foreach ($saves as $save)
+                                <native:row native:key="save-{{ $save['slot'] }}" class="w-full items-center justify-between px-1">
+                                    <native:text class="text-gray-200 text-sm">Saved {{ date('g:i:s A', $save['at']) }}</native:text>
+                                    <native:button label="Restore" @press="restoreState('{{ $save['slot'] }}')" />
+                                </native:row>
+                            @endforeach
+                        </native:column>
+                    @endif
 
                     {{-- ── System scope: everything here affects only this console. ── --}}
                     <native:text class="text-gray-400 text-xs font-semibold pt-2">THIS SYSTEM — {{ strtoupper(\App\Support\Catalog::shortName($id)) }}</native:text>
@@ -181,80 +201,99 @@
                         @if ($benchEngine !== '')
                             <native:text class="text-gray-400 text-sm">Forced to {{ $benchEngine }} by the audio bench for this boot.</native:text>
                         @else
-                            @foreach (array_chunk($backendOptions, 3) as $chipRow)
+                            @foreach (array_chunk($engineChips, 3) as $chipRow)
                                 <native:row class="w-full gap-2">
-                                    @foreach ($chipRow as $engine)
-                                        <native:pressable native:key="be-{{ $engine }}"
-                                            class="flex-1 py-2 rounded-full items-center border border-white/10 {{ $engineSelected === $engine ? 'bg-green-600' : 'bg-gray-800' }}"
-                                            @press="selectBackend('{{ $engine }}')">
-                                            <native:text class="text-white text-sm text-center">{{ $engine }}</native:text>
-                                        </native:pressable>
+                                    @foreach ($chipRow as $chip)
+                                        @if ($chip['available'])
+                                            <native:pressable native:key="be-{{ $chip['name'] }}"
+                                                class="flex-1 py-2 rounded-full items-center border border-white/10 {{ $engineSelected === $chip['name'] ? 'bg-green-600' : 'bg-gray-800' }}"
+                                                @press="selectBackend('{{ $chip['name'] }}')">
+                                                <native:text class="text-white text-sm text-center">{{ $chip['name'] }}</native:text>
+                                            </native:pressable>
+                                        @else
+                                            <native:column native:key="be-{{ $chip['name'] }}"
+                                                class="flex-1 py-2 rounded-full items-center border border-white/5 bg-gray-900">
+                                                <native:text class="text-gray-600 text-sm text-center">{{ $chip['name'] }}</native:text>
+                                            </native:column>
+                                        @endif
                                     @endforeach
                                     @for ($i = count($chipRow); $i < 3; $i++)
                                         <native:column class="flex-1" />
                                     @endfor
                                 </native:row>
                             @endforeach
-                            @if ($engineNote !== '')
-                                <native:text class="text-gray-500 text-xs">{{ $engineNote }}</native:text>
-                            @endif
+                            @foreach ($engineChips as $chip)
+                                @unless ($chip['available'])
+                                    <native:text class="text-gray-500 text-xs">{{ $chip['name'] }} is Android-only</native:text>
+                                @endunless
+                            @endforeach
                             @isset ($pending['backend'])
                                 <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
                             @endisset
                         @endif
                     </native:column>
 
-                    @if ($showAccuracy)
+                    @if ($bootOptionRows !== [])
                         <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
-                            <native:row class="w-full items-center justify-between">
-                                <native:column class="gap-0">
-                                    <native:text class="text-white text-base font-semibold">Accurate rendering</native:text>
-                                    <native:text class="text-gray-400 text-xs">Dot/cycle renderer — costs CPU{{ $accuracyNote !== '' ? ' · '.$accuracyNote : '' }}</native:text>
-                                </native:column>
-                                <native:toggle label="" :value="$accurate" @change="setAccurate" />
-                            </native:row>
-                            @isset ($pending['pixelAccuracy'])
-                                <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
-                            @endisset
-                        </native:column>
-                    @endif
-
-                    @if ($regions !== [])
-                        <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
-                            <native:text class="text-white text-base font-semibold">Region</native:text>
-                            @foreach (array_chunk([['', $status === 'running' && $region !== '' ? "Auto ({$region})" : 'Auto'], ...array_map(fn ($r) => [$r, $r], $regions)], 3) as $chipRow)
-                                <native:row class="w-full gap-2">
-                                    @foreach ($chipRow as [$value, $label])
-                                        <native:pressable native:key="rg-{{ $value === '' ? 'auto' : $value }}"
-                                            class="flex-1 py-2 rounded-full items-center border border-white/10 {{ $regionChoice === $value ? 'bg-green-600' : 'bg-gray-800' }}"
-                                            @press="selectRegion('{{ $value }}')">
-                                            <native:text class="text-white text-sm text-center">{{ $label }}</native:text>
-                                        </native:pressable>
-                                    @endforeach
-                                    @for ($i = count($chipRow); $i < 3; $i++)
-                                        <native:column class="flex-1" />
-                                    @endfor
+                            <native:text class="text-white text-base font-semibold">Boot options</native:text>
+                            @foreach ($bootOptionRows as $field => $row)
+                                <native:row native:key="boot-{{ $field }}" class="w-full items-center justify-between">
+                                    <native:column class="flex-1 gap-0">
+                                        <native:text class="{{ $row['enabled'] ? 'text-gray-200' : 'text-gray-600' }} text-sm">{{ $row['label'] }}</native:text>
+                                        <native:text class="text-gray-500 text-xs">{{ $row['help'] }}{{ $row['note'] !== '' ? ' · '.$row['note'] : '' }}</native:text>
+                                    </native:column>
+                                    <native:toggle label="" :value="$row['value']" @change="setBootOption('{{ $field }}')" />
                                 </native:row>
+                                @isset ($pending[$field === 'pixelAccuracy' ? 'pixelAccuracy' : $field])
+                                    <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
+                                @endisset
                             @endforeach
-                            @isset ($pending['region'])
-                                <native:text class="text-amber-400 text-xs">Takes effect on reboot</native:text>
-                            @endisset
                         </native:column>
                     @endif
 
-                    @if ($toggleLabels !== [])
+                    @if ($toggleRows !== [])
                         <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-2">
                             <native:text class="text-white text-base font-semibold">{{ \App\Support\Catalog::shortName($id) }} options</native:text>
-                            @foreach ($toggleLabels as $field => $meta)
+                            @foreach ($toggleRows as $field => $row)
                                 <native:row native:key="{{ $field }}" class="w-full items-center justify-between">
-                                    <native:column class="gap-0">
-                                        <native:text class="{{ ($meta['enabled'] ?? true) ? 'text-gray-200' : 'text-gray-600' }} text-sm">{{ $meta['label'] }}</native:text>
-                                        @if (($meta['note'] ?? '') !== '')
-                                            <native:text class="text-gray-500 text-xs">{{ $meta['note'] }}</native:text>
+                                    <native:column class="flex-1 gap-0">
+                                        <native:text class="{{ $row['enabled'] ? 'text-gray-200' : 'text-gray-600' }} text-sm">{{ $row['label'] }}</native:text>
+                                        @if ($row['note'] !== '')
+                                            <native:text class="text-gray-500 text-xs">{{ $row['note'] }}</native:text>
                                         @endif
                                     </native:column>
                                     <native:toggle label="" :value="$toggles[$field] ?? false" @change="setToggle('{{ $field }}')" />
                                 </native:row>
+                            @endforeach
+                        </native:column>
+                    @endif
+
+                    {{-- Engine-declared options (libretro cores): the schema is the
+                         core's own; the demo just renders it. --}}
+                    @if ($engineOpts !== [])
+                        <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-3">
+                            <native:column class="gap-0">
+                                <native:text class="text-white text-base font-semibold">{{ $engineSelected }} core options</native:text>
+                                <native:text class="text-gray-400 text-xs">Declared by the core · apply live</native:text>
+                            </native:column>
+                            @foreach ($engineOpts as $option)
+                                <native:column native:key="eo-{{ $option['key'] }}" class="w-full gap-1">
+                                    <native:text class="text-gray-200 text-sm">{{ $option['key'] }}</native:text>
+                                    @foreach (array_chunk($option['choices'], 3) as $chipRow)
+                                        <native:row class="w-full gap-2">
+                                            @foreach ($chipRow as $choice)
+                                                <native:pressable native:key="eo-{{ $option['key'] }}-{{ $choice }}"
+                                                    class="flex-1 py-1 rounded-full items-center border border-white/10 {{ $option['current'] === $choice ? 'bg-green-600' : 'bg-gray-800' }}"
+                                                    @press="setEngineOption('{{ $option['key'] }}', '{{ $choice }}')">
+                                                    <native:text class="text-white text-xs text-center">{{ $choice }}</native:text>
+                                                </native:pressable>
+                                            @endforeach
+                                            @for ($i = count($chipRow); $i < 3; $i++)
+                                                <native:column class="flex-1" />
+                                            @endfor
+                                        </native:row>
+                                    @endforeach
+                                </native:column>
                             @endforeach
                         </native:column>
                     @endif
@@ -266,14 +305,14 @@
                         {{-- EDGE toggle labels render near-invisible on dark bg;
                              carry every label as our own text instead. --}}
                         <native:row class="w-full items-center justify-between">
-                            <native:column class="gap-0">
+                            <native:column class="flex-1 gap-0">
                                 <native:text class="text-white text-base font-semibold">CRT shader</native:text>
                                 <native:text class="text-gray-400 text-xs">crt-lottes · applies instantly</native:text>
                             </native:column>
                             <native:toggle label="" :value="$crt" @change="setCrt" />
                         </native:row>
                         <native:row class="w-full items-center justify-between">
-                            <native:column class="gap-0">
+                            <native:column class="flex-1 gap-0">
                                 <native:text class="text-white text-base font-semibold">Rewind</native:text>
                                 <native:text class="text-gray-400 text-xs">Costs CPU while playing · history starts when enabled</native:text>
                             </native:column>
@@ -284,9 +323,9 @@
                     <native:column class="w-full p-4 rounded-2xl bg-gray-900 gap-3">
                         <native:column class="gap-0">
                             <native:text class="text-white text-base font-semibold">Picture</native:text>
-                            <native:text class="text-gray-400 text-xs">All systems · ares engine only · applies instantly</native:text>
+                            <native:text class="text-gray-400 text-xs">All systems · applies instantly</native:text>
                         </native:column>
-                        @if ($pictureOk)
+                        @if ($gates['picture'])
                             <native:column class="w-full gap-1">
                                 <native:text class="text-gray-200 text-sm">Luminance — {{ $luminance }}% {{ $luminance === 100 ? '(unchanged)' : '' }}</native:text>
                                 <native:slider class="w-full" min="0" max="100" step="5" native:model.debounce.300ms="luminance" />
@@ -304,7 +343,7 @@
                                 <native:toggle label="" :value="$overscan" @change="setOverscan" />
                             </native:row>
                         @else
-                            <native:text class="text-gray-400 text-sm">Picture controls need the ares engine — current: {{ $bootedBackend !== '' ? $bootedBackend : 'not booted' }}.</native:text>
+                            <native:text class="text-gray-400 text-sm">{{ $gates['pictureNote'] }}</native:text>
                         @endif
                     </native:column>
 

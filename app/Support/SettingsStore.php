@@ -13,6 +13,7 @@ use KevinBatdorf\RetroEmulator\Config\SystemConfig;
 use KevinBatdorf\RetroEmulator\Facades\Emulator;
 use KevinBatdorf\RetroEmulator\Region;
 use KevinBatdorf\RetroEmulator\Shaders;
+use Native\Mobile\Platform;
 
 /**
  * The two-scope settings model from the plan. Global settings apply on every
@@ -115,20 +116,104 @@ class SettingsStore
         return (bool) ($s['accurate'] ?? JsonStore::read(self::GLOBAL_FILE)['accurate'] ?? false);
     }
 
+    /** BYO cores this app packages in resources/emulator-cores (Android loads them; iOS cannot). */
+    public static function packagedCores(string $id): array
+    {
+        return array_values(array_filter(
+            (array) (config('retro-emulator.backends')[$id] ?? []),
+            fn ($engine) => is_string($engine)
+                && (glob(resource_path("emulator-cores/android/*/{$engine}_libretro*.so")) ?: []) !== [],
+        ));
+    }
+
+    /** Engines a boot can land on here: bridge claimants, plus packaged cores off iOS. */
+    public static function availableBackends(string $id): array
+    {
+        $claimants = [];
+        foreach (self::systemsCached() as $entry) {
+            if (($entry['id'] ?? '') === $id) {
+                $claimants = $entry['backends'] ?? [];
+                break;
+            }
+        }
+
+        $packaged = Platform::current() === Platform::IOS ? [] : self::packagedCores($id);
+
+        return array_values(array_unique([...$claimants, ...$packaged]));
+    }
+
+    /** Config-named engines this platform cannot load (iOS: the packaged Android cores). */
+    public static function unavailableBackends(string $id): array
+    {
+        return array_values(array_diff(self::packagedCores($id), self::availableBackends($id)));
+    }
+
+    /**
+     * What a no-choice boot lands on — the same skip-absent-engines walk the
+     * native layer runs, ending on ares. Prediction only: after a boot the
+     * truth is Emulator::backend().
+     */
+    public static function defaultEngine(string $id): string
+    {
+        $available = self::availableBackends($id);
+
+        foreach ((array) (config('retro-emulator.backends')[$id] ?? []) as $engine) {
+            if ($available === [] || in_array($engine, $available, true)) {
+                return (string) $engine;
+            }
+        }
+
+        return 'ares';
+    }
+
     /**
      * The engine a boot of $id will resolve to: explicit per-system choice,
-     * else the app's config preference, else the plugin's ares floor.
+     * else the first AVAILABLE config preference, else the ares floor.
      */
     public static function effectiveBackend(string $id, array $overrides = []): string
     {
         $s = array_merge(self::system($id), $overrides);
 
-        return ($s['backend'] ?? '')
-            ?: (config('retro-emulator.backends')[$id][0] ?? 'ares');
+        return ($s['backend'] ?? '') ?: self::defaultEngine($id);
+    }
+
+    /**
+     * Save-state bookkeeping per system+ROM: newest-first [['slot','at'], …],
+     * capped at three. The plugin owns the state files; this only remembers
+     * which named slots exist and when they were written.
+     */
+    public static function savesFor(string $id, string $rom): array
+    {
+        return array_values(JsonStore::read('saves')["{$id}:{$rom}"] ?? []);
+    }
+
+    public static function recordSave(string $id, string $rom, string $slot): array
+    {
+        $all = JsonStore::read('saves');
+        $key = "{$id}:{$rom}";
+        $list = array_values(array_filter(
+            $all[$key] ?? [],
+            fn ($entry) => ($entry['slot'] ?? '') !== $slot,
+        ));
+        array_unshift($list, ['slot' => $slot, 'at' => time()]);
+        $all[$key] = array_slice($list, 0, 3);
+        JsonStore::write('saves', $all);
+
+        return $all[$key];
     }
 
     /** Memoized Emulator::systems() — capability lookups run per render. */
     private static ?array $systemsCache = null;
+
+    /** An empty answer is a bridge that wasn't ready — never memoize it. */
+    private static function systemsCached(): array
+    {
+        if (self::$systemsCache === null || self::$systemsCache === []) {
+            self::$systemsCache = Emulator::systems();
+        }
+
+        return self::$systemsCache;
+    }
 
     /**
      * One engine's capability object for a system, [] when unknown
@@ -136,9 +221,7 @@ class SettingsStore
      */
     public static function capabilitiesFor(string $id, string $backend): array
     {
-        self::$systemsCache ??= Emulator::systems();
-
-        foreach (self::$systemsCache as $entry) {
+        foreach (self::systemsCached() as $entry) {
             if (($entry['id'] ?? '') === $id) {
                 return $entry['capabilities'][$backend] ?? [];
             }

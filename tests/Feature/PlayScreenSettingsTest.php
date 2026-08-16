@@ -41,15 +41,6 @@ it('clears the reboot note when the change is reverted', function () {
     expect(SettingsStore::system('sfc')['backend'])->toBe('');
 });
 
-it('flags a region change as boot-pending and clears it on revert', function () {
-    $screen = playScreen()
-        ->call('selectRegion', 'PAL')
-        ->assertSee('Takes effect on reboot');
-
-    $screen->call('selectRegion', '')
-        ->assertDontSee('Takes effect on reboot');
-});
-
 it('applies rewind live without a reboot note when the bridge accepts it', function () {
     Native::fakeBridge();
 
@@ -145,6 +136,52 @@ it('refuses an engine-gated toggle locally instead of surfacing the native error
         ->call('setToggle', 'colorEmulation', true);
 
     expect(SettingsStore::system('gb'))->not->toHaveKey('colorEmulation');
+});
+
+it('shows the engine the boot landed on, not the config wish', function () {
+    // sfc's config prefers snes9x; the core reports it landed on ares.
+    Native::fakeBridge()->respondTo('Emulator.GetStatus', [
+        'status' => 'running', 'backend' => 'ares',
+    ]);
+
+    Native::test(PlayScreen::class, ['id' => 'sfc'], ['rom' => 'game.sfc'])
+        ->call('pump')
+        ->assertSet('booted', true)
+        ->assertSet('bootedBackend', 'ares');
+});
+
+it('refuses an engine-gated boot option locally', function () {
+    Native::fakeBridge()->respondTo('Emulator.GetSystems', ['systems' => [[
+        'id' => 'gba', 'name' => 'Game Boy Advance',
+        'supported' => true, 'stable' => true,
+        'backends' => ['ares', 'mgba'],
+        'capabilities' => [
+            'ares' => ['toggles' => [], 'bootOptions' => ['pixelAccuracy']],
+            'mgba' => ['toggles' => [], 'bootOptions' => []],
+        ],
+    ]]]);
+
+    playScreen('gba')
+        ->set('bootedBackend', 'mgba')
+        ->call('toggleMenu')
+        ->call('toggleMenu')
+        ->call('setBootOption', 'pixelAccuracy', true);
+
+    expect(SettingsStore::system('gba'))->not->toHaveKey('accurate');
+});
+
+it('rolls save states across three timestamped slots, newest first', function () {
+    Native::fakeBridge();
+
+    $screen = playScreen();
+    foreach (range(1, 4) as $i) {
+        $screen->call('saveStateNow');
+    }
+
+    $saves = $screen->get('saves');
+    expect($saves)->toHaveCount(3);
+    expect(array_column($saves, 'slot'))->toBe(['a', 'c', 'b']);
+    expect($saves[0]['at'])->toBeGreaterThanOrEqual($saves[2]['at']);
 });
 
 it('reverts a toggle when the engine refuses it', function () {

@@ -39,7 +39,9 @@ use Native\Mobile\Platform;
  * pauses the game but KEEPS the surface alive — navigating to a separate screen
  * would tear the surface down and kill the running game. Settings apply live
  * wherever the plugin has a runtime setter; true boot-only options (engine,
- * renderer accuracy, region) persist and show up in the reboot diff.
+ * capability boot options) persist and show up in the reboot diff. The menu
+ * renders from the loaded engine's capability data — nothing is hardcoded
+ * per system.
  */
 class PlayScreen extends NativeComponent
 {
@@ -77,9 +79,6 @@ class PlayScreen extends NativeComponent
 
     /** Engine serving this system: '' = default, else a name or BYO core. */
     public string $backend = '';
-
-    /** Stored region preference: '' = auto (resolved from the ROM). */
-    public string $regionChoice = '';
 
     /** The one overlay: transport + settings. Game pauses while it's open. */
     public bool $menuOpen = false;
@@ -129,6 +128,21 @@ class PlayScreen extends NativeComponent
 
     /** Runtime introspection for the dev view, cached when the menu opens. */
     public array $devState = [];
+
+    /** Engine-declared option schema (libretro cores); [] for bundled engines. */
+    public array $engineOpts = [];
+
+    /** Newest-first save states for this system+ROM: [['slot','at'], …] max 3. */
+    public array $saves = [];
+
+    /** Boot-only option values keyed by capability field (pixelAccuracy, rawAudio). */
+    public array $bootOpts = [];
+
+    /** Wall-clock deadline for the +10s fast-forward burst; null = idle. */
+    public ?float $ffStopAt = null;
+
+    /** Clears the transient rewinding highlight after playback exhausts. */
+    public ?float $rewindFlagUntil = null;
 
     /** Audio bench: engine to force, '' for the app's stored setting. */
     public string $benchEngine = '';
@@ -184,7 +198,11 @@ class PlayScreen extends NativeComponent
 
         $s = SettingsStore::system($this->id);
         $this->backend = (string) ($s['backend'] ?? '');
-        $this->regionChoice = (string) ($s['region'] ?? '');
+        $this->bootOpts = [
+            'pixelAccuracy' => SettingsStore::accurateFor($this->id),
+            'rawAudio' => (bool) ($s['rawAudio'] ?? false),
+        ];
+        $this->saves = SettingsStore::savesFor($this->id, $this->romName);
         $this->toggles = [];
         foreach (array_keys(Catalog::toggles($this->id)) as $field) {
             $this->toggles[$field] = isset($s[$field])
@@ -291,7 +309,10 @@ class PlayScreen extends NativeComponent
             $this->booted = true;
             $this->error = '';
             $this->bootedConfig = $this->configArray();
-            $this->bootedBackend = SettingsStore::effectiveBackend($this->id, $this->benchOverrides());
+            // Read back from the core — a config preferring an absent
+            // engine lands on ares, and every gate must follow the landing.
+            $this->bootedBackend = $this->emu()->backend()
+                ?: SettingsStore::effectiveBackend($this->id, $this->benchOverrides());
         } catch (EmulatorException $e) {
             // Surface not attached yet — keep retrying for a few seconds before
             // surfacing the failure.
@@ -344,12 +365,25 @@ class PlayScreen extends NativeComponent
         $this->guard(fn () => $this->emu()->getDevice(1)->setButtons([$button => false]));
     }
 
-    /** Clear the one-tick transport action flash. */
+    /** Clear the one-tick transport flash; land the timed transport bursts. */
     #[Poll(200)]
     public function inputTick(): void
     {
         if ($this->flash !== '') {
             $this->flash = '';
+        }
+
+        if ($this->ffStopAt !== null && microtime(true) >= $this->ffStopAt) {
+            $this->ffStopAt = null;
+            $this->fastForward = false;
+            $this->guard(fn () => $this->emu()->fastForward(false));
+        }
+
+        // Playback self-resumes when the buffer runs dry; only the highlight
+        // needs clearing.
+        if ($this->rewindFlagUntil !== null && microtime(true) >= $this->rewindFlagUntil) {
+            $this->rewindFlagUntil = null;
+            $this->rewinding = false;
         }
     }
 
@@ -390,16 +424,14 @@ class PlayScreen extends NativeComponent
                 continue;
             }
 
-            $this->backendOptions = array_values(array_unique([
-                ...($entry['backends'] ?? []),
-                ...$this->shippedCores(),
-            ]));
+            $this->backendOptions = SettingsStore::availableBackends($this->id);
             $this->systemCaps = $entry['capabilities'] ?? [];
+            $this->engineOpts = $this->readEngineOptions();
 
             // Capabilities can surface toggles the mount-time hydrate didn't
             // know (GBA's ares-only pair); pull their stored values in.
             $s = SettingsStore::system($this->id);
-            foreach (array_keys($this->toggleMeta()) as $field) {
+            foreach (array_keys($this->toggleRows()) as $field) {
                 $this->toggles[$field] ??= (bool) ($s[$field] ?? false);
             }
 
@@ -408,25 +440,6 @@ class PlayScreen extends NativeComponent
 
         $this->backendOptions = Catalog::backends($this->id);
         $this->systemCaps = [];
-    }
-
-    /**
-     * Configured engines whose .so this app packages — the bridge never
-     * lists a BYO core until a boot adopts it. Android only: iOS links
-     * its engines statically.
-     *
-     * @return list<string>
-     */
-    private function shippedCores(): array
-    {
-        if (Platform::current() === Platform::IOS) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            config('retro-emulator.backends')[$this->id] ?? [],
-            fn (string $engine) => (glob(resource_path("emulator-cores/android/*/{$engine}_libretro*.so")) ?: []) !== [],
-        ));
     }
 
     /**
@@ -497,50 +510,136 @@ class PlayScreen extends NativeComponent
         };
     }
 
-    /**
-     * The toggles this system shows, with engine notes computed from
-     * capabilities: a toggle not served by every engine of the system names
-     * the engines that do. Catalog's static map is the off-device fallback.
-     *
-     * @return array<string, array{label: string, note: string}>
-     */
-    private function toggleMeta(): array
+    /** Bridge round-trips guarded: off-device or a dead call renders no section. */
+    private function readEngineOptions(): array
     {
-        if ($this->systemCaps === []) {
-            return Catalog::toggles($this->id);
+        try {
+            return array_map(fn ($option) => [
+                'key' => (string) ($option['key'] ?? ''),
+                'choices' => array_values((array) ($option['choices'] ?? [])),
+                'current' => (string) ($option['current'] ?? ''),
+            ], $this->emu()->engineOptions());
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /** The engine whose declared capabilities the menu renders: booted truth, else the boot-pending pick. */
+    private function currentEngine(): string
+    {
+        if ($this->bootedBackend !== '') {
+            return $this->bootedBackend;
         }
 
-        $meta = [];
+        return $this->backend !== '' ? $this->backend : $this->defaultEngine();
+    }
+
+    private function currentCaps(): array
+    {
+        return $this->systemCaps[$this->currentEngine()] ?? [];
+    }
+
+    /**
+     * Runtime toggle rows, built from capabilities: the current engine's
+     * toggles are live; a toggle only another engine declares renders
+     * disabled, named after its engines. Catalog is the off-device fallback.
+     *
+     * @return array<string, array{label: string, note: string, enabled: bool}>
+     */
+    private function toggleRows(): array
+    {
+        if ($this->systemCaps === []) {
+            return array_map(
+                fn ($meta) => $meta + ['enabled' => true],
+                Catalog::toggles($this->id),
+            );
+        }
+
+        $rows = [];
         foreach ($this->systemCaps as $engine => $caps) {
             foreach ($caps['toggles'] ?? [] as $field) {
-                $meta[$field]['label'] = Catalog::TOGGLE_LABELS[$field] ?? $field;
-                $meta[$field]['engines'][] = $engine;
+                $rows[$field]['label'] = Catalog::TOGGLE_LABELS[$field] ?? $field;
+                $rows[$field]['engines'][] = $engine;
             }
         }
 
-        foreach ($meta as $field => &$entry) {
-            $entry['note'] = count($entry['engines']) === count($this->systemCaps)
+        $current = $this->currentEngine();
+        foreach ($rows as $field => &$row) {
+            $row['enabled'] = in_array($current, $row['engines'], true);
+            $row['note'] = $row['enabled'] && count($row['engines']) === count($this->systemCaps)
                 ? ''
-                : implode(' / ', $entry['engines']).' engine only';
-            $entry['enabled'] = $this->currentEngineServes($field);
+                : implode(' / ', $row['engines']).' engine only';
+            unset($row['engines']);
         }
 
-        return $meta;
+        return $rows;
     }
 
-    /** Engines the config names that this platform cannot offer (iOS: BYO cores). */
-    private function engineNote(): string
+    /**
+     * Boot-only option rows from capabilities (pixelAccuracy, rawAudio) —
+     * rendered only when some engine of this system declares them, disabled
+     * when the current engine doesn't. Changes land via the reboot diff.
+     *
+     * @return array<string, array{label: string, help: string, note: string, enabled: bool, value: bool}>
+     */
+    private function bootOptionRows(): array
     {
-        $missing = array_diff(
-            config('retro-emulator.backends')[$this->id] ?? [],
+        $labels = [
+            'pixelAccuracy' => ['Accurate rendering', 'Dot/cycle renderer — costs CPU'],
+            'rawAudio' => ['Raw engine audio', "The engine's own untouched output"],
+        ];
+
+        if ($this->systemCaps === []) {
+            // Off-device fallback: SNES/GBA are the dual-renderer systems.
+            return in_array($this->id, ['sfc', 'gba'], true)
+                ? ['pixelAccuracy' => [
+                    'label' => $labels['pixelAccuracy'][0],
+                    'help' => $labels['pixelAccuracy'][1],
+                    'note' => 'ares engine only',
+                    'enabled' => true,
+                    'value' => (bool) ($this->bootOpts['pixelAccuracy'] ?? false),
+                ]]
+                : [];
+        }
+
+        $rows = [];
+        foreach ($this->systemCaps as $engine => $caps) {
+            foreach ($caps['bootOptions'] ?? [] as $field) {
+                if (! isset($labels[$field])) {
+                    continue;
+                }
+                $rows[$field]['label'] = $labels[$field][0];
+                $rows[$field]['help'] = $labels[$field][1];
+                $rows[$field]['engines'][] = $engine;
+            }
+        }
+
+        $current = $this->currentEngine();
+        foreach ($rows as $field => &$row) {
+            $row['enabled'] = in_array($current, $row['engines'], true);
+            $row['note'] = count($row['engines']) === count($this->systemCaps)
+                ? ''
+                : implode(' / ', $row['engines']).' engine only';
+            $row['value'] = (bool) ($this->bootOpts[$field] ?? false);
+            unset($row['engines']);
+        }
+
+        return $rows;
+    }
+
+    /** Engine chips: real engines pressable, platform-missing ones inert and noted. */
+    private function engineChips(): array
+    {
+        $chips = array_map(
+            fn ($engine) => ['name' => $engine, 'available' => true],
             $this->backendOptions,
         );
 
-        if ($missing === [] || Platform::current() !== Platform::IOS) {
-            return '';
+        foreach (SettingsStore::unavailableBackends($this->id) as $engine) {
+            $chips[] = ['name' => $engine, 'available' => false];
         }
 
-        return implode(' / ', $missing).' — libretro cores are Android-only';
+        return $chips;
     }
 
     public function togglePause(): void
@@ -554,34 +653,68 @@ class PlayScreen extends NativeComponent
         }
     }
 
-    public function saveState(): void
+    /** One save slot per press, rolling across three named per-ROM slots. */
+    public function saveStateNow(): void
     {
-        $this->flash = 'Save';
-        $this->guard(fn () => $this->emu()->saveState(1), 'Saved to slot 1');
+        $used = array_column($this->saves, 'slot');
+        $slot = '';
+        foreach (['a', 'b', 'c'] as $candidate) {
+            if (! in_array($candidate, $used, true)) {
+                $slot = $candidate;
+                break;
+            }
+        }
+        // All three in use: recycle the oldest (list is newest-first).
+        $slot = $slot !== '' ? $slot : end($this->saves)['slot'];
+
+        if (! $this->guard(fn () => $this->emu()->saveState("{$this->id}-{$slot}"), 'State saved')) {
+            return;
+        }
+
+        $this->saves = SettingsStore::recordSave($this->id, $this->romName, $slot);
     }
 
-    public function loadState(): void
+    public function restoreState(string $slot): void
     {
-        $this->flash = 'Load';
-        $this->guard(fn () => $this->emu()->loadState(1), 'Loaded slot 1');
+        if ($this->guard(fn () => $this->emu()->loadState("{$this->id}-{$slot}"), 'State restored')
+            && $this->menuOpen) {
+            $this->toggleMenu();
+        }
     }
 
-    public function undo(): void
+    /**
+     * One toggle only: the 10 s buffer plays out and auto-resumes; a second
+     * timed toggle would race the auto-exit and re-enter rewind.
+     */
+    public function rewindBack(): void
     {
-        $this->flash = 'Undo';
-        $this->guard(fn () => $this->emu()->undoLoadState(), 'Undid last load');
+        if (! $this->rewindEnabled) {
+            return;
+        }
+
+        if (! $this->guard(fn () => $this->emu()->toggleRewind())) {
+            return;
+        }
+
+        $this->rewinding = true;
+        $this->rewindFlagUntil = microtime(true) + 2.5;
+        if ($this->menuOpen) {
+            $this->toggleMenu();   // resume so the playback is visible
+        }
     }
 
-    public function rewind(): void
+    /** Fast-forward one burst: 4× for 2.5 s ≈ +10 s of game time. */
+    public function skipAhead(): void
     {
-        $this->rewinding = ! $this->rewinding;
-        $this->guard(fn () => $this->emu()->toggleRewind(), $this->rewinding ? 'Rewinding' : 'Rewind off');
-    }
+        if (! $this->guard(fn () => $this->emu()->fastForward(true))) {
+            return;
+        }
 
-    public function toggleFastForward(): void
-    {
-        $this->fastForward = ! $this->fastForward;
-        $this->guard(fn () => $this->emu()->fastForward($this->fastForward));
+        $this->fastForward = true;
+        $this->ffStopAt = microtime(true) + 2.5;
+        if ($this->menuOpen) {
+            $this->toggleMenu();
+        }
     }
 
     public function screenshot(): void
@@ -720,10 +853,46 @@ class PlayScreen extends NativeComponent
         $this->syncBooted('rewind', 'rewindBufferSeconds');
     }
 
+    /** Boot-only capability options; a change lands via the reboot diff. */
+    public function setBootOption(string $field, bool $on): void
+    {
+        $row = $this->bootOptionRows()[$field] ?? null;
+        if ($row === null) {
+            return;
+        }
+        if ($on && ! $row['enabled']) {
+            Dialog::toast("{$row['label']} needs the {$row['note']} — running {$this->currentEngine()}");
+
+            return;
+        }
+
+        $this->bootOpts[$field] = $on;
+        if ($field === 'pixelAccuracy') {
+            $this->accurate = $on;
+            SettingsStore::setSystem($this->id, 'accurate', $on);
+
+            return;
+        }
+        SettingsStore::setSystem($this->id, $field, $on);
+    }
+
     public function setAccurate(bool $on): void
     {
-        $this->accurate = $on;
-        SettingsStore::setSystem($this->id, 'accurate', $on);
+        $this->setBootOption('pixelAccuracy', $on);
+    }
+
+    /** Apply one engine-declared option (libretro cores) to the running core. */
+    public function setEngineOption(string $key, string $value): void
+    {
+        if (! $this->guard(fn () => $this->emu()->configure(['engineOptions' => [$key => $value]]))) {
+            return;
+        }
+
+        foreach ($this->engineOpts as &$option) {
+            if ($option['key'] === $key) {
+                $option['current'] = $value;
+            }
+        }
     }
 
     public function selectBackend(string $name): void
@@ -734,49 +903,19 @@ class PlayScreen extends NativeComponent
         SettingsStore::setSystem($this->id, 'backend', $this->backend);
     }
 
-    /** The engine serving toggles right now: booted, else the boot-pending pick. */
-    private function currentEngine(): string
-    {
-        if ($this->bootedBackend !== '') {
-            return $this->bootedBackend;
-        }
-
-        return $this->backend !== '' ? $this->backend : $this->defaultEngine();
-    }
-
-    /** Unknown capabilities (off-device) fall through to the bridge's own check. */
-    private function currentEngineServes(string $field): bool
-    {
-        $caps = $this->systemCaps[$this->currentEngine()] ?? [];
-
-        return $caps === [] || in_array($field, $caps['toggles'] ?? [], true);
-    }
-
     /** What a boot with no explicit engine choice resolves to. */
     private function defaultEngine(): string
     {
-        foreach (config('retro-emulator.backends')[$this->id] ?? [] as $engine) {
-            if ($this->backendOptions === [] || in_array($engine, $this->backendOptions, true)) {
-                return $engine;
-            }
-        }
-
-        return 'ares';
-    }
-
-    public function selectRegion(string $value): void
-    {
-        $this->regionChoice = $value;
-        SettingsStore::setSystem($this->id, 'region', $value);
+        return SettingsStore::defaultEngine($this->id);
     }
 
     public function setToggle(string $field, bool $on): void
     {
-        if ($on && ! $this->currentEngineServes($field)) {
-            $engines = implode(' / ', $this->toggleMeta()[$field]['engines'] ?? []);
+        $row = $this->toggleRows()[$field] ?? ['enabled' => true];
+        if ($on && ! ($row['enabled'] ?? true)) {
             Dialog::toast(
-                ($this->toggleMeta()[$field]['label'] ?? $field)
-                ." needs the {$engines} engine — running {$this->currentEngine()}",
+                ($row['label'] ?? $field)." needs the {$row['note']}".
+                " — running {$this->currentEngine()}",
             );
 
             return;
@@ -866,48 +1005,48 @@ class PlayScreen extends NativeComponent
 
         return view('play', [
             'groups' => Catalog::groupButtons($this->buttons),
-            'toggleLabels' => $this->toggleMeta(),
+            'toggleRows' => $this->toggleRows(),
+            'bootOptionRows' => $this->bootOptionRows(),
+            'engineChips' => $this->engineChips(),
+            'engineOpts' => $this->menuOpen ? $this->engineOpts : [],
+            'gates' => $this->featureGates(),
             'controllers' => Emulator::inputDevices(),
             'pending' => $pending,
-            'regions' => Catalog::regions($this->id),
             'engineSelected' => $this->backend !== '' ? $this->backend : $this->defaultEngine(),
-            'engineNote' => $this->engineNote(),
             'devRows' => $this->menuOpen ? $this->devRows($pending) : [],
-            'pictureOk' => $this->systemCaps === []
-                ? ($this->bootedBackend === '' || $this->bootedBackend === 'ares')
-                : (bool) ($this->systemCaps[$this->bootedBackend]['videoSettings'] ?? false),
-            ...$this->accuracyMeta(),
         ]);
     }
 
     /**
-     * Renderer-accuracy visibility from capabilities: shown when any of the
-     * system's engines declares the pixelAccuracy boot option, noted when
-     * not all of them do. sfc/gba is the off-device fallback.
+     * Host-feature visibility from the current engine's capability object:
+     * absent capability, absent section. Off-device keeps ares behavior.
      *
-     * @return array{showAccuracy: bool, accuracyNote: string}
+     * @return array{picture: bool, pictureNote: string, saves: bool, rumble: bool}
      */
-    private function accuracyMeta(): array
+    private function featureGates(): array
     {
-        if ($this->systemCaps === []) {
-            return [
-                'showAccuracy' => in_array($this->id, ['sfc', 'gba'], true),
-                'accuracyNote' => 'ares engine only',
-            ];
+        $caps = $this->currentCaps();
+
+        if ($caps === []) {
+            $isAres = $this->currentEngine() === 'ares';
+
+            return ['picture' => $isAres, 'pictureNote' => '', 'saves' => true, 'rumble' => true];
         }
 
-        $engines = [];
-        foreach ($this->systemCaps as $engine => $caps) {
-            if (in_array('pixelAccuracy', $caps['bootOptions'] ?? [], true)) {
-                $engines[] = $engine;
+        $pictureEngines = [];
+        foreach ($this->systemCaps as $engine => $engineCaps) {
+            if ($engineCaps['videoSettings'] ?? false) {
+                $pictureEngines[] = $engine;
             }
         }
 
         return [
-            'showAccuracy' => $engines !== [],
-            'accuracyNote' => count($engines) === count($this->systemCaps)
-                ? ''
-                : implode(' / ', $engines).' engine only',
+            'picture' => (bool) ($caps['videoSettings'] ?? false),
+            'pictureNote' => $pictureEngines === []
+                ? 'No engine of this system has picture controls'
+                : implode(' / ', $pictureEngines).' engine only — running '.$this->currentEngine(),
+            'saves' => (bool) ($caps['serialize'] ?? false),
+            'rumble' => (bool) ($caps['rumble'] ?? false),
         ];
     }
 }
