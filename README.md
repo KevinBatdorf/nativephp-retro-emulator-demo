@@ -22,10 +22,11 @@ build):
 adb install app-debug.apk
 ```
 
-Or from source (PHP 8.3+, Composer, Node, Android Studio — SDK only, no
-NDK). Clone the
-[plugin](https://github.com/KevinBatdorf/nativephp-retro-emulator) next to
-this repo first; composer resolves it as a path repository:
+Or from source — PHP 8.3+, Composer, Node, Android Studio (SDK only, no
+NDK), and a [NativePHP Mobile](https://nativephp.com/mobile) license for
+`composer install`. The plugin installs from GitHub like any package; the
+first build downloads its prebuilt emulator cores from the plugin's
+release (checksum-verified, cached after that):
 
 ```bash
 composer install
@@ -40,15 +41,11 @@ edits without rebuilding.
 
 ## iOS
 
-Same source setup, then build the plugin's framework and wire the pod —
-the Podfile generator only knows published pods, so add the path pod by
-hand (and re-add it after any `native:install ios`):
+Same source setup — the plugin's build hook downloads the prebuilt
+framework and wires the Podfile itself:
 
 ```bash
-(cd ../nativephp-retro-emulator && ./scripts/build_xcframework.sh)
 php artisan native:install ios
-# in nativephp/ios/Podfile, inside the shared pods block:
-#   pod 'RetroEmulator', :path => '../../../nativephp-retro-emulator'
 LANG=en_US.UTF-8 php artisan native:run ios
 ```
 

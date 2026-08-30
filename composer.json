@@ -10,8 +10,8 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
-        "kevinbatdorf/nativephp-fullscreen": "@dev",
-        "kevinbatdorf/retro-emulator": "@dev",
+        "kevinbatdorf/nativephp-fullscreen": "^0.1",
+        "kevinbatdorf/retro-emulator": "^0.1",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
         "nativephp/mobile": "^4.0",
@@ -104,13 +104,13 @@
         },
         {
             "name": "retro-emulator",
-            "type": "path",
-            "url": "../nativephp-retro-emulator"
+            "type": "vcs",
+            "url": "https://github.com/KevinBatdorf/nativephp-retro-emulator"
         },
         {
             "name": "fullscreen",
-            "type": "path",
-            "url": "../nativephp-fullscreen"
+            "type": "vcs",
+            "url": "https://github.com/KevinBatdorf/nativephp-fullscreen"
         }
     ]
 }
