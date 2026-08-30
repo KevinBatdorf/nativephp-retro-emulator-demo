@@ -707,7 +707,7 @@ it('exercises every bridge function declared in the plugin manifest', function (
     drive($runner, ConformanceRunner::initialState('/roms/test.sfc'));
 
     $manifest = json_decode(
-        file_get_contents(__DIR__.'/../../vendor/kevinbatdorf/retro-emulator/nativephp.json'),
+        file_get_contents(__DIR__.'/../../vendor/kevinbatdorf/nativephp-retro-emulator/nativephp.json'),
         true,
     );
     $declared = array_column($manifest['bridge_functions'], 'name');

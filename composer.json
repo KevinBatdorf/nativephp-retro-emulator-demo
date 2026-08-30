@@ -9,13 +9,13 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
         "kevinbatdorf/nativephp-fullscreen": "^0.1",
-        "kevinbatdorf/retro-emulator": "^0.1",
+        "kevinbatdorf/nativephp-retro-emulator": "^0.1.1",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
         "nativephp/mobile": "^4.0",
-        "nativephp/mobile-ui": "dev-main"
+        "nativephp/mobile-ui": "dev-main",
+        "php": "^8.3"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -101,16 +101,6 @@
             "name": "mobile-ui",
             "type": "vcs",
             "url": "https://github.com/nativephp/mobile-ui"
-        },
-        {
-            "name": "retro-emulator",
-            "type": "vcs",
-            "url": "https://github.com/KevinBatdorf/nativephp-retro-emulator"
-        },
-        {
-            "name": "fullscreen",
-            "type": "vcs",
-            "url": "https://github.com/KevinBatdorf/nativephp-fullscreen"
         }
     ]
 }

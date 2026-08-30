@@ -206,21 +206,21 @@ return [
         // (C++ sources, gradle project, nested dev vendor with dangling
         // symlinks) is not needed at runtime and breaks/bloats the bundle.
         // Only its src/ and resources/ (the shipped .so) must ship.
-        'vendor/kevinbatdorf/retro-emulator/vendor',
-        'vendor/kevinbatdorf/retro-emulator/ares',
-        'vendor/kevinbatdorf/retro-emulator/sameboy',
-        'vendor/kevinbatdorf/retro-emulator/mgba',
-        'vendor/kevinbatdorf/retro-emulator/tools',
-        'vendor/kevinbatdorf/retro-emulator/patches',
-        'vendor/kevinbatdorf/retro-emulator/android',
-        'vendor/kevinbatdorf/retro-emulator/build',
-        'vendor/kevinbatdorf/retro-emulator/native',
-        'vendor/kevinbatdorf/retro-emulator/ios',
-        'vendor/kevinbatdorf/retro-emulator/local',   // 3.4 GB of dev ROMs/firmware — the bundle-bloat culprit
-        'vendor/kevinbatdorf/retro-emulator/scripts',
-        'vendor/kevinbatdorf/retro-emulator/tests',
-        'vendor/kevinbatdorf/retro-emulator/.claude',
-        'vendor/kevinbatdorf/retro-emulator/.git',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/vendor',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/ares',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/sameboy',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/mgba',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/tools',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/patches',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/android',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/build',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/native',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/ios',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/local',   // 3.4 GB of dev ROMs/firmware — the bundle-bloat culprit
+        'vendor/kevinbatdorf/nativephp-retro-emulator/scripts',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/tests',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/.claude',
+        'vendor/kevinbatdorf/nativephp-retro-emulator/.git',
     ],
 
     /*
