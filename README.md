@@ -24,9 +24,11 @@ adb install app-debug.apk
 
 Or from source — PHP 8.3+, Composer, Node, Android Studio (SDK only, no
 NDK), and a [NativePHP Mobile](https://nativephp.com/mobile) license for
-`composer install`. The plugin installs from GitHub like any package; the
-first build downloads its prebuilt emulator cores from the plugin's
-release (checksum-verified, cached after that):
+`composer install`. Have `ANDROID_HOME` pointing at your SDK (Android
+Studio's default is `~/Library/Android/sdk` on macOS) — the generated
+project can't find it otherwise. The plugin installs from GitHub like any
+package; the first build downloads its prebuilt emulator cores from the
+plugin's release (checksum-verified, cached after that):
 
 ```bash
 composer install
