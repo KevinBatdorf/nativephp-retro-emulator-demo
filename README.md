@@ -12,6 +12,9 @@ homebrew game to check the plugin works on a real device.
 - Game Boy Advance
 - Genesis
 
+I added an open source homebrew rom for each system to test with, but you can
+load your own in app as well.
+
 ## Android
 
 Install the debug APK (GitHub release, or
