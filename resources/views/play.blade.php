@@ -93,7 +93,10 @@
              clears the island, and rotation re-insets via WindowMetricsChanged.
              Row padding, not margins on the pad — EDGE margins don't move
              native surface elements. --}}
-        <native:row class="w-full pl-[{{ max(20, $safeLeft) }}] pr-[{{ max(20, $safeRight) }}] pb-6 items-end justify-between">
+        {{-- Both control rows reserve fixed heights — their buttons mount after
+             the async port read, and unreserved space reflows the d-pad
+             (visible jump). 164 = tallest face cluster (SNES) + pb. --}}
+        <native:row class="w-full h-[164] pl-[{{ max(20, $safeLeft) }}] pr-[{{ max(20, $safeRight) }}] pb-6 items-end justify-between">
             {{-- One input area, not four buttons: the plugin's element resolves
                  the finger's position natively, so diagonals work and sliding
                  off the pad keeps walking. No PHP runs per press. --}}
@@ -120,15 +123,13 @@
         {{-- Select/Start under the game's letterbox — a full-width centered
              row also can't overflow portrait. pb-9 lifts it out of the iPhone
              home-indicator gesture zone, which eats taps. --}}
-        @if (count($groups['system']))
-            <native:row class="w-full pb-9 items-center justify-center gap-3">
-                @foreach ($groups['system'] as $b)
-                    <native:pressable class="py-1 px-3 rounded-full {{ $ring }} {{ $bg($b, 'bg-gray-700/40') }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
-                        <native:text class="text-white/80 text-xs">{{ strtoupper($b) }}</native:text>
-                    </native:pressable>
-                @endforeach
-            </native:row>
-        @endif
+        <native:row class="w-full h-[60] pb-9 items-center justify-center gap-3">
+            @foreach ($groups['system'] as $b)
+                <native:pressable class="py-1 px-3 rounded-full {{ $ring }} {{ $bg($b, 'bg-gray-700/40') }}" @pressDown="press('{{ $b }}')" @pressUp="release('{{ $b }}')">
+                    <native:text class="text-white/80 text-xs">{{ strtoupper($b) }}</native:text>
+                </native:pressable>
+            @endforeach
+        </native:row>
         </native:column>
     </native:column>
 
