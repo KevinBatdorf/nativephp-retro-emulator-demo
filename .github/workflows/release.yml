@@ -67,7 +67,7 @@ jobs:
           npm run build
 
       - name: Scaffold Android project
-        run: php artisan native:install android --force --without-icu --no-interaction
+        run: php artisan native:install android --no-interaction
 
       # --build=debug refuses to run without an attached device; --build=release doesn't.
       - name: Prepare and build (release)
