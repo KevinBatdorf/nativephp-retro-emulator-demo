@@ -118,10 +118,22 @@ class SettingsStore
     /** BYO cores this app packages in resources/emulator-cores (Android loads them; iOS cannot). */
     public static function packagedCores(string $id): array
     {
+        // No glob: a directory wildcard in the pattern matches nothing on the PHP 8.4 Android runtime.
+        $files = [];
+        $root = resource_path('emulator-cores/android');
+
+        foreach (is_dir($root) ? (scandir($root) ?: []) : [] as $abi) {
+            if (! str_starts_with($abi, '.') && is_dir("{$root}/{$abi}")) {
+                $files = [...$files, ...(scandir("{$root}/{$abi}") ?: [])];
+            }
+        }
+
         return array_values(array_filter(
             (array) (config('retro-emulator.backends')[$id] ?? []),
-            fn ($engine) => is_string($engine)
-                && (glob(resource_path("emulator-cores/android/*/{$engine}_libretro*.so")) ?: []) !== [],
+            fn ($engine) => is_string($engine) && array_any(
+                $files,
+                fn ($f) => str_starts_with($f, "{$engine}_libretro") && str_ends_with($f, '.so'),
+            ),
         ));
     }
 

@@ -106,15 +106,31 @@ it('offers shipped bring-your-own cores alongside the bridge claimants', functio
         'capabilities' => ['ares' => ['videoSettings' => true, 'toggles' => ['deepBlackBoost'], 'bootOptions' => ['pixelAccuracy']]],
     ]]]);
 
-    // set('menuOpen') skips refreshEngineData; only a real toggle cycle runs it.
-    playScreen()
-        ->call('toggleMenu')
-        ->call('toggleMenu')
-        ->assertSet('backendOptions', ['ares', 'snes9x'])
-        ->call('selectBackend', 'snes9x');
+    // The scan reads the real disk, and a fresh clone has no fetched cores.
+    $dir = resource_path('emulator-cores/android/arm64-v8a');
+    $so = "{$dir}/snes9x_libretro_android.so";
+    $created = ! file_exists($so);
 
-    // snes9x resolves as the default, so picking it stores ''.
-    expect(SettingsStore::system('sfc')['backend'])->toBe('');
+    if ($created) {
+        is_dir($dir) || mkdir($dir, 0755, true);
+        touch($so);
+    }
+
+    try {
+        // set('menuOpen') skips refreshEngineData; only a real toggle cycle runs it.
+        playScreen()
+            ->call('toggleMenu')
+            ->call('toggleMenu')
+            ->assertSet('backendOptions', ['ares', 'snes9x'])
+            ->call('selectBackend', 'snes9x');
+
+        // snes9x resolves as the default, so picking it stores ''.
+        expect(SettingsStore::system('sfc')['backend'])->toBe('');
+    } finally {
+        if ($created) {
+            unlink($so);
+        }
+    }
 });
 
 it('refuses an engine-gated toggle locally instead of surfacing the native error', function () {
