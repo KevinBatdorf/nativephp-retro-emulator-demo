@@ -1,8 +1,4 @@
-# Syntax-lint only: composer install needs two local path repos
-# (../nativephp-retro-emulator and ../nativephp-fullscreen), so the Pest
-# suite can't run hosted until those resolve remotely (checkout both as
-# siblings with a PAT, or point composer at their GitHub repos). Lint still
-# catches the common demo breakage — a bad edit in app/ or config/.
+# Full Pest suite on every push — deps resolve remotely, no laptop involved.
 name: CI
 
 on:
@@ -11,19 +7,29 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: "8.4"
           coverage: none
 
-      - name: PHP syntax
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Composer install
+        run: composer install --no-interaction --prefer-dist
+
+      - name: App setup
         run: |
-          set -e
-          find app config database routes tests -name '*.php' -print0 \
-            | xargs -0 -n 1 -P 4 php -l > /dev/null
-          echo "all PHP files parse"
+          cp .env.example .env
+          php artisan key:generate
+          npm install --ignore-scripts
+          npm run build
+
+      - name: Pest
+        run: php artisan test
