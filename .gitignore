@@ -34,3 +34,6 @@ Thumbs.db
 
 # BYO libretro cores (downloaded, never committed)
 resources/emulator-cores/
+
+# Untracked so fresh clones resolve the newest plugin release
+composer.lock

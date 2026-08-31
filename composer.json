@@ -10,7 +10,7 @@
     "license": "MIT",
     "require": {
         "kevinbatdorf/nativephp-fullscreen": "^0.1",
-        "kevinbatdorf/nativephp-retro-emulator": "^0.1.1",
+        "kevinbatdorf/nativephp-retro-emulator": "*",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
         "nativephp/mobile": "^4.0",

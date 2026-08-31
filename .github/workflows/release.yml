@@ -1,0 +1,113 @@
+# Builds the sideloadable demo APK on a bare runner and cuts the GitHub release.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.2.0)"
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse to re-release an existing version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          V="${INPUT_VERSION#v}"
+          if ! echo "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::'$INPUT_VERSION' is not a X.Y.Z version." >&2
+            exit 1
+          fi
+          if git ls-remote --tags origin "refs/tags/v$V" | grep -q .; then
+            echo "::error::v$V is already released — delete the tag first if recutting." >&2
+            exit 1
+          fi
+          echo "releasing v$V"
+
+  apk:
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # No committed lock file — resolves the newest plugin release, same as a fresh consumer clone.
+      - name: Composer install
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Resolved plugin version
+        run: composer show kevinbatdorf/nativephp-retro-emulator | grep -E '^(name|versions)'
+
+      - name: App setup
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          npm install --ignore-scripts
+          npm run build
+
+      - name: Scaffold Android project
+        run: php artisan native:install android --force --without-icu --no-interaction
+
+      # --build=debug refuses to run without an attached device; --build=release doesn't.
+      - name: Prepare and build (release)
+        run: php artisan native:run android --build=release --no-tty --no-interaction
+
+      - name: Consumer scaffold carries the core-staging guard
+        run: grep -q "NATIVEPHP_RETRO_EMULATOR_CORE_CHECK" nativephp/android/app/build.gradle.kts
+
+      # Release APKs are unsigned without a keystore; the debug APK is the sideloadable one.
+      - name: Debug APK
+        run: cd nativephp/android && ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: nativephp/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  release:
+    needs: apk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-debug
+          path: dist
+
+      - name: Tag and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="v${INPUT_VERSION#v}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+
+          gh release create "$VERSION" dist/app-debug.apk \
+            --title "$VERSION" \
+            --notes "CI-built sideloadable demo APK (debug-signed). Install with \`adb install app-debug.apk\`. Built from a bare checkout against the newest plugin release on Packagist."
