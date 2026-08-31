@@ -66,6 +66,10 @@ jobs:
           npm install --ignore-scripts
           npm run build
 
+      # Licences + sources for these ship in resources/core-licenses.txt.
+      - name: Fetch verified libretro cores
+        run: php artisan retro-emulator:fetch-core fceumm mesen snes9x bsnes picodrive genesis_plus_gx
+
       - name: Scaffold Android project
         run: php artisan native:install android --no-interaction
 

@@ -1,0 +1,13 @@
+Bundled libretro emulator cores — unmodified nightly builds from
+buildbot.libretro.com, each under its author's own licence. This demo is
+distributed free of charge and its own code is MIT.
+
+fceumm            GPL-2.0                       https://github.com/libretro/libretro-fceumm
+mesen             GPL-3.0                       https://github.com/libretro/mesen
+bsnes             GPL-3.0                       https://github.com/libretro/bsnes-libretro
+snes9x            Snes9x non-commercial licence https://github.com/snes9xgit/snes9x
+picodrive         non-commercial (MAME-style)   https://github.com/libretro/picodrive
+genesis_plus_gx   non-commercial licence        https://github.com/libretro/Genesis-Plus-GX
+
+GPL cores: the builds are unmodified; complete corresponding source is
+available at the repositories above.

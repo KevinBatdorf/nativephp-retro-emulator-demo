@@ -42,6 +42,18 @@ LANG=en_US.UTF-8 php artisan native:run ios
 
 Simulator works out of the box; a physical iPhone needs `NATIVEPHP_DEVELOPMENT_TEAM` in `.env` and Developer Mode enabled.
 
+## Extra emulator cores
+
+Every system boots on a bundled engine (ares, SameBoy, mGBA), and the plugin can fetch alternative libretro cores — see the [verified core table](https://github.com/KevinBatdorf/nativephp-retro-emulator#readme) — which appear as engine choices in the in-game menu:
+
+```bash
+php artisan retro-emulator:fetch-core snes9x
+```
+
+Fetched cores land in `resources/emulator-cores/` and ride into the next `native:run android` build. They're Android-only (iOS plays everything through the bundled engines), and each core keeps its author's own license — read the plugin's [LICENSING.md](https://github.com/KevinBatdorf/nativephp-retro-emulator/blob/main/LICENSING.md) before shipping one in your app.
+
+The release APK already ships all six verified alternates (fceumm, mesen, snes9x, bsnes, picodrive, genesis_plus_gx) — their licenses and sources are listed in [`resources/core-licenses.txt`](resources/core-licenses.txt).
+
 ## Game credits
 
 Every bundled game is freely-licensed homebrew — full texts in [`resources/roms/license.txt`](resources/roms/license.txt):
