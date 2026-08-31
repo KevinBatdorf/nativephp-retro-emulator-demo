@@ -148,11 +148,11 @@ class Catalog
     public static function backends(string $system): array
     {
         return match ($system) {
-            'sfc' => ['ares', 'snes9x'],
-            'fc' => ['ares', 'fceumm'],
+            'sfc' => ['snes9x', 'bsnes', 'ares'],
+            'fc' => ['fceumm', 'mesen', 'ares'],
             'gb', 'gbc' => ['sameboy', 'ares'],
             'gba' => ['mgba', 'ares'],
-            'md' => ['ares', 'picodrive'],
+            'md' => ['picodrive', 'genesis_plus_gx', 'ares'],
             default => [],
         };
     }

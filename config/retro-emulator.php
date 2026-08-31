@@ -55,14 +55,14 @@ return [
     |
     */
 
+    // Every list is [fast, accurate]; the first engine present on disk is the default.
     'backends' => [
         'fc' => ['fceumm', 'mesen'],
         'sfc' => ['snes9x', 'bsnes'],
         'gb' => ['sameboy', 'ares'],
         'gbc' => ['sameboy', 'ares'],
         'gba' => ['mgba', 'ares'],
-        // PicoDrive's FM voicing is audibly off; keep it an explicit pick.
-        'md' => ['ares', 'picodrive'],
+        'md' => ['picodrive', 'genesis_plus_gx'],
     ],
 
 ];
