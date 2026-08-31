@@ -2,6 +2,12 @@
 
 Demo app for the [retro-emulator](https://github.com/KevinBatdorf/nativephp-retro-emulator) NativePHP Mobile plugin — boots each supported system with a bundled homebrew game to check the plugin works on a real device.
 
+<p>
+  <img src="docs/home.png" width="32%" alt="Home screen" />
+  <img src="docs/dpad-demo.png" width="32%" alt="D-pad demo" />
+  <img src="docs/snes.png" width="32%" alt="SNES gameplay with touch controls" />
+</p>
+
 - NES
 - SNES
 - Game Boy
